@@ -57,10 +57,13 @@ tags: [标签1, 标签2]
 
 ## 🚀 部署
 
-### 部署到 GitHub Pages
+### 同仓库部署到 GitHub Pages（gh-pages 分支）
 ```bash
 hexo clean && hexo generate && hexo deploy
 ```
+
+> 当前项目默认将生成内容发布到本仓库 `gh-pages` 分支。
+> 首次发布后请在 GitHub 仓库设置中将 Pages Source 设置为 `gh-pages` 分支（`/root`）。
 
 ## 📁 项目结构
 
