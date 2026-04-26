@@ -64,11 +64,11 @@ hexo clean && hexo generate && hexo deploy
 
 > 当前项目默认将生成内容发布到本仓库 `gh-pages` 分支。
 > 首次发布后请在 GitHub 仓库设置中将 Pages Source 设置为 `gh-pages` 分支（`/root`）。
->
 > 你也可以直接使用仓库内置的 GitHub Actions 工作流（`.github/workflows/deploy-pages.yml`）自动部署：
 > 1. 推送到 `main`（或当前示例分支 `work`）；
 > 2. Actions 会自动构建并创建/更新 `gh-pages` 分支；
 > 3. 在 GitHub Pages 中选择 `Deploy from a branch` -> `gh-pages` -> `/root`。
+
 
 ## 📁 项目结构
 
