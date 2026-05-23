@@ -125,14 +125,14 @@ widgets: ## Seven widgets in sidebar provided: search, info, category, tag, rece
   - links
 
 info:
-  avatar: /img/avatar.png
+  avatar: /img/avatar.jpg
   discription: To be a better man.
   outlinkitem:
     - name: twitter
       outlink: https://x.com/home
       message: Twitter
     - name: envelope
-      outlink: mailto:admin@domain.com
+      outlink: mailto:yaojie425@gmail.com
       message: Email
     - name: github
       outlink: https://github.com/yynomad
