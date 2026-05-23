@@ -129,31 +129,27 @@ info:
   discription: To be a better man.
   outlinkitem:
     - name: twitter
-      outlink: https://twitter.com/username
+      outlink: https://x.com/home
       message: Twitter
     - name: envelope
       outlink: mailto:admin@domain.com
       message: Email
     - name: github
-      outlink: https://github.com/username
+      outlink: https://github.com/yynomad
       message: Github
     - name: rss
       outlink: /atom.xml
       message: RSS
 
 links:
-  - title: site-name1
-    url: http://www.example1.com/
-    src: https://www.example1.com/favicon.ico
-    desc: XXX's Blog
-  - title: site-name2
-    url: http://www.example2.com/
-    src: https://www.example1.com/favicon.ico
-    desc: YYY's Blog
-  - title: site-name3
-    url: http://www.example3.com/
-    src: https://www.example3.com/favicon.ico
-    desc: ZZZ's Blog
+  - title: X (Twitter)
+    url: https://x.com/home
+    src: https://abs.twimg.com/favicons/twitter.ico
+    desc: @yynomad
+  - title: GitHub
+    url: https://github.com/yynomad
+    src: https://github.githubassets.com/favicons/favicon.svg
+    desc: yynomad
 
 timeline:
   - num: 1
