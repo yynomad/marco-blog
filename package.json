@@ -7,8 +7,8 @@
     "clean": "hexo clean",
     "deploy": "hexo deploy",
     "server": "hexo server",
-    "sync": "node scripts/sync-notion.js",
-    "upload-images": "node scripts/upload-images.js"
+    "sync": "node tools/sync-notion.js",
+    "upload-images": "node tools/upload-images.js"
   },
   "hexo": {
     "version": "7.3.0"
