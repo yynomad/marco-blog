@@ -279,7 +279,7 @@ async function blocksToMarkdown(blocks, imageMap) {
 // 处理单篇文章
 // ============================================================
 
-async function processPage(pageId, pageTitle) {
+async function processPage(pageId, pageTitle, createdTime) {
   console.log(`\n📄 处理文章: ${pageTitle}`);
 
   // 获取所有块
@@ -311,9 +311,10 @@ async function processPage(pageId, pageTitle) {
 
   // 组装 Frontmatter
   const slug = slugify(pageTitle);
+  const createdDate = createdTime ? createdTime.split('T')[0] : new Date().toISOString().split('T')[0];
   const frontmatter = `---
 title: ${pageTitle}
-date: ${today()}
+date: ${createdDate}
 tags:
 categories:
 ---
@@ -372,7 +373,7 @@ async function main() {
       continue;
     }
     try {
-      await processPage(page.id, title);
+      await processPage(page.id, title, page.created_time);
     } catch (err) {
       console.error(`  ❌ 处理失败: ${title} - ${err.message}`);
     }
