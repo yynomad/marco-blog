@@ -105,3 +105,9 @@ deploy:
   type: git
   repo: https://github.com/yynomad/marco-blog.git
   branch: gh-pages
+
+feed:
+   type: atom
+   path: atom.xml
+   limit: 20
+   
