@@ -1,6 +1,6 @@
 ---
 title: claude code接入deepseek等模型
-date: 2026-05-23
+date: 2025-11-16
 tags:
 categories:
 ---

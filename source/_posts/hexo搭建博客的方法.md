@@ -1,6 +1,6 @@
 ---
 title: hexo搭建博客的方法
-date: 2026-05-23
+date: 2025-01-12
 tags:
 categories:
 ---

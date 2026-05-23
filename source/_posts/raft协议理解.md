@@ -1,6 +1,6 @@
 ---
 title: raft协议理解
-date: 2026-05-23
+date: 2025-09-22
 tags:
 categories:
 ---
