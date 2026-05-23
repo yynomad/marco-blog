@@ -5,6 +5,9 @@ on:
     - cron: '*/30 * * * *'  # 每 30 分钟跑一次
   workflow_dispatch:         # 也可以手动触发
 
+permissions:
+  contents: write
+
 jobs:
   sync:
     runs-on: ubuntu-latest
