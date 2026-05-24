@@ -55,10 +55,10 @@ const POSTS_DIR = path.join(__dirname, '..', 'source', '_posts');
 // ============================================================
 
 /** Notion API 调用封装 */
-async function notionAPI(path, body) {
+async function notionAPI(path, body, method) {
   const isGet = !body || Object.keys(body).length === 0;
   const options = {
-    method: isGet ? 'GET' : 'POST',
+    method: method || (isGet ? 'GET' : 'POST'),
     headers: {
       'Authorization': `Bearer ${NOTION_TOKEN}`,
       'Content-Type': 'application/json',
@@ -139,13 +139,21 @@ const s3 = new S3Client({
 
 /** 下载图片 */
 async function downloadImage(url) {
-  const response = await fetch(url);
-  if (!response.ok) throw new Error(`下载图片失败: ${response.status}`);
-  const buffer = Buffer.from(await response.arrayBuffer());
+  const https = require('https');
+  const { buffer, contentType } = await new Promise((resolve, reject) => {
+    https.get(url, (res) => {
+      if (res.statusCode !== 200) {
+        reject(new Error(`下载图片失败: ${res.statusCode}`));
+        return;
+      }
+      const ct = res.headers['content-type'] || 'image/png';
+      const chunks = [];
+      res.on('data', (chunk) => chunks.push(chunk));
+      res.on('end', () => resolve({ buffer: Buffer.concat(chunks), contentType: ct }));
+    }).on('error', reject);
+  });
 
-  // 用 MD5 做文件名，避免重复
   const hash = crypto.createHash('md5').update(buffer).digest('hex');
-  const contentType = response.headers.get('content-type') || 'image/png';
   const ext = contentType.split('/')[1] || 'png';
   const filename = `${hash}.${ext}`;
 
@@ -378,13 +386,17 @@ async function main() {
       console.error(`  ❌ 处理失败: ${title} - ${err.message}`);
     }
 
-    // 可选：同步后把状态改为 "Synced"，避免重复同步
-    // await notion.pages.update({
-    //   page_id: page.id,
-    //   properties: {
-    //     Status: { status: { name: 'Synced' } },
-    //   },
-    // });
+    // 同步完成后把状态改为 "已同步"，不再重复处理
+    try {
+      await notionAPI(`/pages/${page.id}`, {
+        properties: {
+          '状态': { status: { name: '已同步' } },
+        },
+      }, 'PATCH');
+    } catch (err) {
+      // 只是标记状态，失败了不影响文章同步结果
+      console.error(`  ⚠️  状态标记失败: ${err.message}`);
+    }
   }
 
   console.log('\n✅ 同步完成！');
