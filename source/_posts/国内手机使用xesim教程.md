@@ -1,5 +1,6 @@
 ---
 title: 国内手机使用Xesim教程
+slug: xesim-china-guide
 date: 2026-02-21
 tags:
 categories:

@@ -1,5 +1,6 @@
 ---
 title: claude code接入deepseek等模型
+slug: claude-code-third-party-models
 date: 2025-11-16
 tags:
 categories:

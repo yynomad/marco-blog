@@ -1,5 +1,6 @@
 ---
 title: lets encrypt创建证书
+slug: lets-encrypt-cert
 date: 2025-01-23
 tags:
 categories:

@@ -1,5 +1,6 @@
 ---
 title: hexo搭建博客的方法
+slug: hexo-blog-setup
 date: 2025-01-12
 tags:
 categories:

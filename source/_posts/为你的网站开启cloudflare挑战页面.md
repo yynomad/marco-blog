@@ -1,5 +1,6 @@
 ---
 title: 为你的网站开启cloudflare挑战页面
+slug: cloudflare-challenge-page
 date: 2025-01-11
 tags:
 categories:
