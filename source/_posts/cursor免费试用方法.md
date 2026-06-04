@@ -1,7 +1,7 @@
 ---
 title: cursor免费试用方法
-slug: cursor-free-trial
 date: 2025-01-18 10:00:00
+permalink: cursor-free-trial/
 tags: [cursor, 免费试用]
 ---
 

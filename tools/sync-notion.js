@@ -381,7 +381,15 @@ async function main() {
       continue;
     }
     try {
-      await processPage(page.id, title, page.created_time);
+      const filepath = await processPage(page.id, title, page.created_time);
+      // 如果 Notion 有填 permalink 列，写入 frontmatter
+      const customPermalink = page.properties['permalink']?.rich_text?.[0]?.plain_text?.trim();
+      if (customPermalink && filepath) {
+        let content = require('fs').readFileSync(filepath, 'utf-8');
+        content = content.replace(/^date:/m, `permalink: ${customPermalink}\ndate:`);
+        require('fs').writeFileSync(filepath, content, 'utf-8');
+        console.log(`  🔗 已添加 permalink: ${customPermalink}`);
+      }
     } catch (err) {
       console.error(`  ❌ 处理失败: ${title} - ${err.message}`);
     }

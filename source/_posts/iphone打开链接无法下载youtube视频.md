@@ -1,7 +1,7 @@
 ---
 title: iPhone打开链接无法下载youtube视频
-slug: iphone-youtube-download-issue
 date: 2025-01-11
+permalink: iphone-youtube-download/
 tags:
 categories:
 ---

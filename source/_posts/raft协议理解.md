@@ -1,7 +1,7 @@
 ---
 title: raft协议理解
-slug: raft-protocol-explained
 date: 2025-09-22
+permalink: raft-protocol-guide/
 tags:
 categories:
 ---

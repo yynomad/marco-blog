@@ -1,7 +1,7 @@
 ---
 title: IBKR合规搞定海外地址证明
-slug: ibkr-address-proof
 date: 2026-02-21
+permalink: ibkr-address-proof/
 tags:
 categories:
 ---

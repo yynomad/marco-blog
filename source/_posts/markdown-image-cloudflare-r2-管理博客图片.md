@@ -1,7 +1,7 @@
 ---
 title: cloudflare R2 管理博客图片
-slug: cloudflare-r2-blog-images
 date: 2026-05-22
+permalink: cloudflare-r2-blog-images/
 tags:
   - Cloudflare
   - R2

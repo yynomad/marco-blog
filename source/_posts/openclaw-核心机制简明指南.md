@@ -1,7 +1,7 @@
 ---
 title: OpenClaw 核心机制
-slug: openclaw-core-mechanisms
 date: 2026-03-17
+permalink: openclaw-core-mechanics/
 tags:
 categories:
 ---

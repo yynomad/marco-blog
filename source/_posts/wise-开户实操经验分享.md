@@ -1,7 +1,7 @@
 ---
 title: Wise 开户实操经验分享
-slug: wise-account-guide
 date: 2026-02-11
+permalink: wise-account-guide/
 tags:
 categories:
 ---

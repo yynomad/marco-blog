@@ -1,7 +1,7 @@
 ---
 title: yt-dlp解决机器人验证
-slug: yt-dlp-captcha-bypass
 date: 2025-01-08
+permalink: yt-dlp-captcha-solution/
 tags:
 categories:
 ---
