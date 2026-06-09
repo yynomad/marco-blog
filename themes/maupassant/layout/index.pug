@@ -44,9 +44,10 @@ block content
   include _partial/paginator.pug
 
   //- Google AdSense - 内容相关广告
-  ins.adsbygoogle(style='display:block', data-ad-format='autorelaxed', data-ad-client='ca-pub-6713468388362324', data-ad-slot='8739778563')
-  script.
-    (adsbygoogle = window.adsbygoogle || []).push({});
+  if theme.google_adsense
+    ins.adsbygoogle(style='display:block', data-ad-format='autorelaxed', data-ad-client='ca-pub-6713468388362324', data-ad-slot='8739778563')
+    script.
+      (adsbygoogle = window.adsbygoogle || []).push({});
 
   if theme.disqus.enable == true
     script#dsq-count-scr(src='//'+ theme.disqus.shortname + '.disqus.com/count.js', async)
