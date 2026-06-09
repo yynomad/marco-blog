@@ -41,6 +41,12 @@ block content
           != toc(page.content, {list_number: theme.toc_number})
     .post-content
       != page.content
+
+    //- Google AdSense - 内容相关广告
+    ins.adsbygoogle(style='display:block', data-ad-format='autorelaxed', data-ad-client='ca-pub-6713468388362324', data-ad-slot='8739778563')
+    script.
+      (adsbygoogle = window.adsbygoogle || []).push({});
+
     if theme.donate.enable == true && page.donate != false
       include _widget/donate.pug
 
