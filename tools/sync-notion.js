@@ -191,6 +191,25 @@ function today() {
   return new Date().toISOString().split('T')[0];
 }
 
+/** 计算 Notion 内容哈希（用于检测变更） */
+function computeContentHash(blocks) {
+  const content = JSON.stringify(blocks.map(b => ({
+    id: b.id,
+    type: b.type,
+    [b.type]: b[b.type],
+  })));
+  return crypto.createHash('md5').update(content).digest('hex');
+}
+
+/** 读取本地文件中存储的 notion_hash */
+function getStoredHash(slug) {
+  const filepath = path.join(POSTS_DIR, `${slug}.md`);
+  if (!fs.existsSync(filepath)) return null;
+  const content = fs.readFileSync(filepath, 'utf-8');
+  const match = content.match(/^notion_hash:\s*(.+)$/m);
+  return match ? match[1].trim() : null;
+}
+
 // ============================================================
 // Notion Block → Markdown 转换
 // ============================================================
@@ -287,11 +306,8 @@ async function blocksToMarkdown(blocks, imageMap) {
 // 处理单篇文章
 // ============================================================
 
-async function processPage(pageId, pageTitle, createdTime) {
+async function processPage(pageId, pageTitle, createdTime, blocks, contentHash) {
   console.log(`\n📄 处理文章: ${pageTitle}`);
-
-  // 获取所有块
-  const blocks = await getPageBlocks(pageId);
 
   // 处理图片：下载 → 上传 R2
   const imageMap = {};
@@ -323,6 +339,7 @@ async function processPage(pageId, pageTitle, createdTime) {
   const frontmatter = `---
 title: ${pageTitle}
 date: ${createdDate}
+notion_hash: ${contentHash}
 tags:
 categories:
 ---
@@ -362,17 +379,17 @@ async function main() {
 
   // 查询 Notion 数据库中状态为 "完成" 的文章
   const pages = await queryDatabase(NOTION_DATABASE_ID, {
-    property: '状态',
-    status: {
-      equals: '完成',
-    },
+    or: [
+      { property: '状态', status: { equals: '完成' } },
+      { property: '状态', status: { equals: '已同步' } },
+    ],
   });
   if (pages.length === 0) {
     console.log('📭 没有新文章需要同步');
     return;
   }
 
-  console.log(`📝 发现 ${pages.length} 篇待同步文章\n`);
+  console.log(`📝 发现 ${pages.length} 篇文章需要检查\n`);
 
   for (const page of pages) {
     const title = page.properties['名称']?.title?.[0]?.plain_text;
@@ -380,8 +397,32 @@ async function main() {
       console.log(`  ⏭️  跳过无标题页面: ${page.id}`);
       continue;
     }
+
+    const pageStatus = page.properties['状态']?.status?.name;
+    const slug = slugify(title);
+
+    // 获取内容并计算哈希
+    let blocks;
     try {
-      const filepath = await processPage(page.id, title, page.created_time);
+      blocks = await getPageBlocks(page.id);
+    } catch (err) {
+      console.error(`  ❌ 获取内容失败: ${title} - ${err.message}`);
+      continue;
+    }
+    const contentHash = computeContentHash(blocks);
+
+    // 对于"已同步"状态的文章，检查哈希是否变化
+    if (pageStatus === '已同步') {
+      const storedHash = getStoredHash(slug);
+      if (storedHash && storedHash === contentHash) {
+        console.log(`  ⏭️  内容未变化，跳过: ${title}`);
+        continue;
+      }
+      console.log(`  📝 内容已变化，重新同步: ${title}`);
+    }
+
+    try {
+      const filepath = await processPage(page.id, title, page.created_time, blocks, contentHash);
       // 如果 Notion 有填 permalink 列，写入 frontmatter
       const customPermalink = page.properties['permalink']?.rich_text?.[0]?.plain_text?.trim();
       if (customPermalink && filepath) {
