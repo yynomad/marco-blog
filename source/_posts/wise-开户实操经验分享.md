@@ -1,7 +1,7 @@
 ---
 title: Wise 开户实操经验分享
 date: 2026-02-11
-permalink: wise-account-guide/
+notion_hash: 27ee4556bc1079315400dd80cbdce4e5
 tags:
 categories:
 ---

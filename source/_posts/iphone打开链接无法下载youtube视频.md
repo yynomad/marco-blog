@@ -1,7 +1,7 @@
 ---
 title: iPhone打开链接无法下载youtube视频
 date: 2025-01-11
-permalink: iphone-youtube-download/
+notion_hash: a40958e61021b81cab52351ed1655d72
 tags:
 categories:
 ---
@@ -24,5 +24,5 @@ iPhone或者iPad等iOS设备打开youtube链接后，右下角没有下载按钮
 
 3. 成功提取后，选择要保存的视频清晰度，然后点击「保存到相册」按钮即可。（如果是图集也支持一键批量保存到相册）
 
-![](https://img.heyyao.com/2026/05/4fdbb3559a441d476f940f5527f3581a.png)
+![](https://prod-files-secure.s3.us-west-2.amazonaws.com/8a2c17d7-2cd0-409e-9361-efc343438929/ff818767-0e7b-4a61-8e25-6615596d48a5/image.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=ASIAZI2LB466TAUNSSJW%2F20260612%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20260612T095310Z&X-Amz-Expires=3600&X-Amz-Security-Token=IQoJb3JpZ2luX2VjEEoaCXVzLXdlc3QtMiJIMEYCIQDhMQWirE9oLIo%2BmAJmqMmpPgVHijdWgP1QugQG0S0tcQIhAP9oaVr2jaiGbsPZi3tgE%2BmVVzIyIGWL1Vc1hAdPqeD5Kv8DCBMQABoMNjM3NDIzMTgzODA1IgxZvBuZ4%2Bmtnv8uuKoq3APBZpeyYqm0d10tmYk0bThOBEvbB2H2QkweEry1LLa%2F%2Bea7yiKEpuIb%2BFXn04qcRlO7u5DU5D2FUevmRjil%2BuHYcBvqEwFLwobqLg2ZBhBMazjBR8KL%2BQEH%2FNhS8sikTE6CdwkXjLRzBZWn%2BTEKlpgKAd%2FdRcRA1oE98URkvvkpwhkynDeu2U1RwrJHIicqhmwB8cw8CyAcn2rFDqNhJCtNAOba66q8GZUBW8KU6KWTz99yMQifpAA0ilBCLwjDLqBS%2FjTDcAf8OPJUt7bBqbo%2B1%2BJ2N0a03lws9YUnewp81Smzp7mkOY%2FW7o12cyHSRY9BksJw0cB75EqoLHsM3FBMLF5pJpfF9dYHPIZCnwQWBNDZX0NMNVCUdKQ64f%2FviWYPwbKoEYTd4pU%2BX8kU1rmmmcDLOBbtmuLVXLTRJQBvbIy0%2BJS2jly5PthH0xc3tqpSZwHTXbN9zJJeyrKSJjPH4Db4BTQ4%2FQOWJpRSn8d1GGyDcJzarqoovrsx5GSxEZHfkDUHxSrgmm%2FzPIPNlUJGdDHpoZghbc%2B0Ro9CDqlnDWouXoiEnopyO9M1L3qthCF%2Bgj%2FeT8plW4JHqfYYQ5fZ997Tm%2BHImMu2WtWuv5AjU6ny4cDTKid5oHOfkjDjoq%2FRBjqkASN%2F2mq3XI3GN7c2WmXBdrE7grtkY6OliIuAGdPbUzVLt3Uz4qBrnTwjZfP78IhgEju9KZsiKyC4GQ9sPYWYKl95f5zJlXuXct7xjixQuX3Wobk202DNmEq2PYo8NVXZXYGjYxutzvuggS3g3VTsQbMKOhN5kL9npFxQjAA2ruiUeX30wIYoWSdkSLI8QsVZXzsAV3OGqbuPP3mUBXk7dc1O7adl&X-Amz-Signature=13e0a6b55c730d1572b3c8662f9021d373b19a87eee5c902cb82d73595b59d47&X-Amz-SignedHeaders=host&x-amz-checksum-mode=ENABLED&x-id=GetObject)
 

@@ -1,7 +1,7 @@
 ---
 title: claude code接入deepseek等模型
 date: 2025-11-16
-permalink: claude-code-deepseek/
+notion_hash: 2177d7cbc3030609389bb742ca0904ad
 tags:
 categories:
 ---
