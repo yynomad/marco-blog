@@ -5,7 +5,10 @@ const assert = require('node:assert/strict');
 // Override credentials before loading the script; tests never access real services.
 for (const name of ['NOTION_TOKEN', 'NOTION_DATABASE_ID', 'R2_SECRET_KEY', 'R2_ACCESS_KEY']) process.env[name] = 'test';
 process.env.R2_ENDPOINT = 'https://example.com';
-const { main } = require('../tools/sync-notion');
+const { main, computeContentHash, slugify } = require('../tools/sync-notion');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 
 const page = { id: 'page-1', created_time: '2026-10-13T10:00:00Z', properties: {
   '名称': { title: [{ plain_text: '用 AI ' }, { plain_text: '做项目的一些思考' }] },
@@ -40,4 +43,19 @@ test('complete rich-text titles survive synchronization', async () => {
     processPage: async (_, text) => { title = text; }, notionAPI: async () => {},
   });
   assert.equal(title, '用 AI 做项目的一些思考');
+});
+
+test('a title change with the same slug and unchanged body still synchronizes', async t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'blog-title-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const title = '用 AI 做项目的一些思考';
+  const existing = path.join(dir, `${slugify(title)}.md`);
+  fs.writeFileSync(existing, '---\ntitle: 用 ai 做项目的一些思考\n---\nbody');
+  let saved = false;
+  await main({ postsDir: dir,
+    queryDatabase: async () => [{ ...page, properties: { ...page.properties, '状态': { status: { name: '已同步' } } } }],
+    getPageBlocks: async () => [], getStoredHash: () => computeContentHash([]),
+    processPage: async () => { saved = true; }, notionAPI: async () => {},
+  });
+  assert.equal(saved, true);
 });

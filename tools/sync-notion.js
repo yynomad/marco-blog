@@ -364,6 +364,7 @@ categories:
 // ============================================================
 
 async function main(services = {}) {
+  const postsDir = services.postsDir || POSTS_DIR;
   const query = services.queryDatabase || queryDatabase;
   const getBlocks = services.getPageBlocks || getPageBlocks;
   const savePage = services.processPage || processPage;
@@ -383,7 +384,7 @@ async function main(services = {}) {
   }
 
   // 确保 posts 目录存在
-  fs.mkdirSync(POSTS_DIR, { recursive: true });
+  fs.mkdirSync(postsDir, { recursive: true });
 
   // 查询 Notion 数据库中状态为 "完成" 的文章
   const pages = await query(NOTION_DATABASE_ID, {
@@ -412,8 +413,8 @@ async function main(services = {}) {
     const pageStatus = page.properties['状态']?.status?.name;
     const slug = slugify(title);
     const customPermalink = page.properties['permalink']?.rich_text?.map(part => part.plain_text).join('').trim();
-    const existingPath = path.join(POSTS_DIR, `${slug}.md`);
-    const cleanup = () => removeStalePosts(POSTS_DIR, {
+    const existingPath = path.join(postsDir, `${slug}.md`);
+    const cleanup = () => removeStalePosts(postsDir, {
       filename: `${slug}.md`, pageId: page.id, permalink: customPermalink, activeFiles,
     });
 
@@ -431,9 +432,10 @@ async function main(services = {}) {
     // 对于"已同步"状态的文章，检查哈希是否变化
     if (pageStatus === '已同步') {
       const storedHash = readHash(slug);
-      const samePermalink = !fs.existsSync(existingPath) ||
-        frontmatterValue(fs.readFileSync(existingPath, 'utf8'), 'permalink') === (customPermalink || '');
-      if (storedHash && storedHash === contentHash && samePermalink) {
+      const existing = fs.existsSync(existingPath) ? fs.readFileSync(existingPath, 'utf8') : null;
+      const sameMetadata = !existing || (frontmatterValue(existing, 'permalink') === (customPermalink || '')
+        && frontmatterValue(existing, 'title') === title);
+      if (storedHash && storedHash === contentHash && sameMetadata) {
         if (fs.existsSync(existingPath)) cleanup();
         console.log(`  ⏭️  内容未变化，跳过: ${title}`);
         continue;
