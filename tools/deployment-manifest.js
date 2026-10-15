@@ -12,6 +12,11 @@ function createManifest(posts, commit, now = new Date()) {
       path: post.path,
       hash: crypto.createHash('sha256').update(post.content || '').digest('hex'),
     }));
+  const routes = new Set();
+  for (const article of articles) {
+    if (routes.has(article.path)) throw new Error(`Duplicate article path: ${article.path}`);
+    routes.add(article.path);
+  }
   return { commit, builtAt: now.toISOString(), articles };
 }
 

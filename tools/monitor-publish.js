@@ -67,7 +67,9 @@ async function verifySite(commit, site, fetchImpl = fetch) {
     const url = new URL(article.path, site);
     if (url.origin !== new URL(site).origin) throw new Error('文章地址不属于博客域名');
     const response = await fetchImpl(url, { signal: AbortSignal.timeout(20000) });
-    if (!response.ok || !(await response.text()).includes(escapeHtml(article.title))) {
+    const html = await response.text();
+    const pageTitle = html.match(/<title>([\s\S]*?)<\/title>/i)?.[1] || '';
+    if (!response.ok || !pageTitle.startsWith(`${escapeHtml(article.title)} | `)) {
       throw new Error(`文章无法正常访问：${article.title}`);
     }
   }

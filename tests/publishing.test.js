@@ -32,6 +32,7 @@ test('manifest excludes drafts and scheduled articles, and detects body changes'
   const second = createManifest([{ ...post, content: 'two' }], sha, new Date('2026-10-15'));
   assert.notEqual(first.articles[0].hash, second.articles[0].hash);
   assert.throws(() => createManifest([post], ''), /commit/);
+  assert.throws(() => createManifest([post, { ...post, title: 'Renamed' }], sha, new Date('2026-10-15')), /Duplicate article path/);
 });
 
 test('successful Notion sync cannot masquerade as successful Cloudflare build', () => {
@@ -63,9 +64,13 @@ test('old deployments, missing articles and homepage omissions fail verification
   const checked = [];
   assert.deepEqual(await verifySite(sha, site, async url => {
     checked.push(String(url));
-    return String(url).includes('deployment.json') ? json(manifest) : new Response(articles[0].title);
+    return String(url).includes('deployment.json') ? json(manifest)
+      : new Response(`<title>${articles[0].title} | 小远的blog</title>`);
   }), manifest);
   assert(checked.includes(site + articles[0].path));
+  await assert.rejects(verifySite(sha, site, async url => String(url).includes('deployment.json')
+    ? json(manifest) : String(url) === site ? new Response(articles[0].title)
+      : new Response(`<title>Another article | 小远的blog</title><aside>${articles[0].title}</aside>`)), /文章/);
 });
 
 test('a failed or stalled build is actionable while a fresh build stays pending', async () => {
