@@ -2,6 +2,7 @@
 title: 如何用 Agent 执行长任务
 permalink: codex-long-running-tasks
 date: 2026-10-14
+notion_id: 3f9f66ff-04f8-8106-b6ae-d0e3fc91afee
 notion_hash: 74d4e8f30cb12ce48838c4faff39eb8d
 tags:
 categories:

@@ -34,6 +34,7 @@ if (fs.existsSync(envPath)) {
 
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 const crypto = require('crypto');
+const { frontmatterValue, removeStalePosts } = require('./post-files');
 
 // ============================================================
 // 配置 - 从环境变量读取
@@ -337,8 +338,9 @@ async function processPage(pageId, pageTitle, createdTime, blocks, contentHash) 
   const slug = slugify(pageTitle);
   const createdDate = createdTime ? createdTime.split('T')[0] : new Date().toISOString().split('T')[0];
   const frontmatter = `---
-title: ${pageTitle}
+title: ${JSON.stringify(pageTitle)}
 date: ${createdDate}
+notion_id: ${pageId}
 notion_hash: ${contentHash}
 tags:
 categories:
@@ -396,6 +398,9 @@ async function main(services = {}) {
   }
 
   console.log(`📝 发现 ${pages.length} 篇文章需要检查\n`);
+  const activeFiles = new Set(pages.map(page => `${slugify(
+    (page.properties['名称']?.title || []).map(part => part.plain_text).join('')
+  )}.md`));
 
   for (const page of pages) {
     const title = page.properties['名称']?.title?.map(part => part.plain_text).join('');
@@ -406,6 +411,11 @@ async function main(services = {}) {
 
     const pageStatus = page.properties['状态']?.status?.name;
     const slug = slugify(title);
+    const customPermalink = page.properties['permalink']?.rich_text?.map(part => part.plain_text).join('').trim();
+    const existingPath = path.join(POSTS_DIR, `${slug}.md`);
+    const cleanup = () => removeStalePosts(POSTS_DIR, {
+      filename: `${slug}.md`, pageId: page.id, permalink: customPermalink, activeFiles,
+    });
 
     // 获取内容并计算哈希
     let blocks;
@@ -421,7 +431,10 @@ async function main(services = {}) {
     // 对于"已同步"状态的文章，检查哈希是否变化
     if (pageStatus === '已同步') {
       const storedHash = readHash(slug);
-      if (storedHash && storedHash === contentHash) {
+      const samePermalink = !fs.existsSync(existingPath) ||
+        frontmatterValue(fs.readFileSync(existingPath, 'utf8'), 'permalink') === (customPermalink || '');
+      if (storedHash && storedHash === contentHash && samePermalink) {
+        if (fs.existsSync(existingPath)) cleanup();
         console.log(`  ⏭️  内容未变化，跳过: ${title}`);
         continue;
       }
@@ -431,13 +444,13 @@ async function main(services = {}) {
     try {
       const filepath = await savePage(page.id, title, page.created_time, blocks, contentHash);
       // 如果 Notion 有填 permalink 列，写入 frontmatter
-      const customPermalink = page.properties['permalink']?.rich_text?.[0]?.plain_text?.trim();
       if (customPermalink && filepath) {
         let content = require('fs').readFileSync(filepath, 'utf-8');
-        content = content.replace(/^date:/m, `permalink: ${customPermalink}\ndate:`);
+        content = content.replace(/^date:/m, `permalink: ${JSON.stringify(customPermalink)}\ndate:`);
         require('fs').writeFileSync(filepath, content, 'utf-8');
         console.log(`  🔗 已添加 permalink: ${customPermalink}`);
       }
+      if (filepath) cleanup();
     } catch (err) {
       console.error(`  ❌ 处理失败: ${title} - ${err.message}`);
       errors.push(title);
