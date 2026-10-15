@@ -1,0 +1,23 @@
+name: Validate Blog
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    paths-ignore: ['source/_posts/**']
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - run: npm install --global npm@10.9.2
+      - run: npm ci
+      - run: npm test
+      - run: npm run build

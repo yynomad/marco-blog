@@ -1,0 +1,53 @@
+name: Blog Publish Monitor
+
+on:
+  workflow_run:
+    workflows: [Sync Notion & Deploy]
+    types: [completed]
+    branches: [main]
+  push:
+    branches: [main]
+  schedule:
+    - cron: '17,47 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+  checks: read
+
+concurrency:
+  group: blog-publish-monitor
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - uses: actions/cache/restore@v4
+        with:
+          path: .publish-state
+          key: blog-publish-v1-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: blog-publish-v1-
+      - name: Verify deployment and notify Telegram
+        id: monitor
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
+        run: node tools/monitor-publish.js --wait
+      - uses: actions/cache/save@v4
+        if: always() && steps.monitor.outputs.state_changed == 'true'
+        with:
+          path: .publish-state
+          key: blog-publish-v1-${{ github.run_id }}-${{ github.run_attempt }}

@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
+    "test": "node --test tests/*.test.js",
     "build": "hexo clean && hexo generate",
     "clean": "hexo clean",
     "deploy": "npm run build && wrangler deploy",
@@ -10,6 +11,11 @@
     "sync": "node tools/sync-notion.js",
     "upload-images": "node tools/upload-images.js",
     "preview": "npm run build && wrangler dev"
+  },
+  "packageManager": "npm@10.9.2",
+  "engines": {
+    "node": "22.23.2",
+    "npm": "10.9.2"
   },
   "hexo": {
     "version": "7.3.0"

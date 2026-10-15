@@ -28,7 +28,7 @@ if (fs.existsSync(envPath)) {
     if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
       val = val.slice(1, -1);
     }
-    process.env[key] = val;
+    if (process.env[key] === undefined) process.env[key] = val;
   }
 }
 
@@ -361,7 +361,13 @@ categories:
 // 主流程
 // ============================================================
 
-async function main() {
+async function main(services = {}) {
+  const query = services.queryDatabase || queryDatabase;
+  const getBlocks = services.getPageBlocks || getPageBlocks;
+  const savePage = services.processPage || processPage;
+  const updatePage = services.notionAPI || notionAPI;
+  const readHash = services.getStoredHash || getStoredHash;
+  const errors = [];
   console.log('🔄 开始同步 Notion → Hexo...\n');
 
   // 检查必要配置
@@ -378,7 +384,7 @@ async function main() {
   fs.mkdirSync(POSTS_DIR, { recursive: true });
 
   // 查询 Notion 数据库中状态为 "完成" 的文章
-  const pages = await queryDatabase(NOTION_DATABASE_ID, {
+  const pages = await query(NOTION_DATABASE_ID, {
     or: [
       { property: '状态', status: { equals: '完成' } },
       { property: '状态', status: { equals: '已同步' } },
@@ -392,7 +398,7 @@ async function main() {
   console.log(`📝 发现 ${pages.length} 篇文章需要检查\n`);
 
   for (const page of pages) {
-    const title = page.properties['名称']?.title?.[0]?.plain_text;
+    const title = page.properties['名称']?.title?.map(part => part.plain_text).join('');
     if (!title) {
       console.log(`  ⏭️  跳过无标题页面: ${page.id}`);
       continue;
@@ -404,16 +410,17 @@ async function main() {
     // 获取内容并计算哈希
     let blocks;
     try {
-      blocks = await getPageBlocks(page.id);
+      blocks = await getBlocks(page.id);
     } catch (err) {
       console.error(`  ❌ 获取内容失败: ${title} - ${err.message}`);
+      errors.push(title);
       continue;
     }
     const contentHash = computeContentHash(blocks);
 
     // 对于"已同步"状态的文章，检查哈希是否变化
     if (pageStatus === '已同步') {
-      const storedHash = getStoredHash(slug);
+      const storedHash = readHash(slug);
       if (storedHash && storedHash === contentHash) {
         console.log(`  ⏭️  内容未变化，跳过: ${title}`);
         continue;
@@ -422,7 +429,7 @@ async function main() {
     }
 
     try {
-      const filepath = await processPage(page.id, title, page.created_time, blocks, contentHash);
+      const filepath = await savePage(page.id, title, page.created_time, blocks, contentHash);
       // 如果 Notion 有填 permalink 列，写入 frontmatter
       const customPermalink = page.properties['permalink']?.rich_text?.[0]?.plain_text?.trim();
       if (customPermalink && filepath) {
@@ -433,25 +440,32 @@ async function main() {
       }
     } catch (err) {
       console.error(`  ❌ 处理失败: ${title} - ${err.message}`);
+      errors.push(title);
+      continue;
     }
 
     // 同步完成后把状态改为 "已同步"，不再重复处理
     try {
-      await notionAPI(`/pages/${page.id}`, {
+      await updatePage(`/pages/${page.id}`, {
         properties: {
           '状态': { status: { name: '已同步' } },
+          '发布状态': { select: { name: '待发布' } },
         },
       }, 'PATCH');
     } catch (err) {
       // 只是标记状态，失败了不影响文章同步结果
       console.error(`  ⚠️  状态标记失败: ${err.message}`);
+      errors.push(title);
     }
   }
 
-  console.log('\n✅ 同步完成！');
+  if (errors.length) throw new Error(`${errors.length} 篇文章同步未完成`);
+  console.log('\n✅ 已同步到仓库；线上发布结果由发布检查确认。');
 }
 
-main().catch(err => {
+if (require.main === module) main().catch(err => {
   console.error('❌ 同步失败:', err);
   process.exit(1);
 });
+
+module.exports = { main, computeContentHash, slugify };

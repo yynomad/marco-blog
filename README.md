@@ -57,17 +57,9 @@ tags: [标签1, 标签2]
 
 ## 🚀 部署
 
-### 同仓库部署到 GitHub Pages（gh-pages 分支）
-```bash
-hexo clean && hexo generate && hexo deploy
-```
+Cloudflare Workers Builds 监听 `main` 分支，执行 `npm run build` 和 `npx wrangler deploy`。Notion 同步任务负责将文章提交到仓库，独立的发布检查负责验证线上版本、更新 Notion 发布状态并发送 Telegram 通知。
 
-> 当前项目默认将生成内容发布到本仓库 `gh-pages` 分支。
-> 首次发布后请在 GitHub 仓库设置中将 Pages Source 设置为 `gh-pages` 分支（`/root`）。
-> 你也可以直接使用仓库内置的 GitHub Actions 工作流（`.github/workflows/deploy-pages.yml`）自动部署：
-> 1. 推送到 `main`（或当前示例分支 `work`）；
-> 2. Actions 会自动构建并创建/更新 `gh-pages` 分支；
-> 3. 在 GitHub Pages 中选择 `Deploy from a branch` -> `gh-pages` -> `/root`。
+环境版本、通知配置和故障处理见 [PUBLISHING.md](PUBLISHING.md)。
 
 
 ## 📁 项目结构
@@ -91,7 +83,7 @@ hexo clean && hexo generate && hexo deploy
 - **网站信息**：title, description, author
 - **URL 配置**：url, permalink
 - **主题设置**：theme: maupassant
-- **部署配置**：deploy 部分
+- **部署配置**：`wrangler.jsonc` 与 Cloudflare Workers Builds
 
 ## 🎨 主题
 
@@ -114,7 +106,7 @@ hexo generate
 hexo server
 
 # 部署到远程
-hexo deploy
+npm run deploy
 
 # 创建新文章
 hexo new "标题"
@@ -132,7 +124,7 @@ git clone https://github.com/tufu9441/maupassant-hexo.git themes/maupassant
 ```
 
 ### 部署失败
-检查 `_config.yml` 中的 deploy 配置是否正确。
+查看 GitHub Actions 的 `Blog Publish Monitor` 和 Cloudflare Workers Builds 日志；本地先执行 `npm ci`、`npm test`、`npm run build`。
 
 ### 图片不显示
 建议将图片放在 `source/images/` 目录下，使用相对路径引用。

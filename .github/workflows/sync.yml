@@ -1,5 +1,9 @@
 name: Sync Notion & Deploy
 
+concurrency:
+  group: notion-blog-sync
+  cancel-in-progress: false
+
 on:
   schedule:
     - cron: '0 6 * * *'     # 每天北京时间 14:00 (UTC 6:00) 跑一次
@@ -18,12 +22,16 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version-file: .node-version
+
+      - name: Pin npm
+        run: npm install --global npm@10.9.2
 
       - name: Install dependencies
         run: npm ci
 
       - name: Sync from Notion
+        id: sync
         env:
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
           NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
@@ -35,6 +43,7 @@ jobs:
         run: npm run sync
 
       - name: Commit & Push changes
+        if: always() && !cancelled() && steps.sync.outcome != 'skipped'
         run: |
           git config user.name "notion-bot"
           git config user.email "notion-bot@github.com"
