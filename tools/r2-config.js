@@ -13,8 +13,10 @@ function credentialDiagnostics(env) {
 function r2Config(env) {
   // Secrets pasted through a terminal can contain trailing line endings.
   // Only trim the boundary; reject quotes, labels and any embedded whitespace.
-  env = { ...env, R2_ACCESS_KEY: (env.R2_ACCESS_KEY || '').trim(),
-    R2_SECRET_KEY: (env.R2_SECRET_KEY || '').trim() };
+  env = { ...env };
+  for (const name of ['R2_ACCESS_KEY', 'R2_SECRET_KEY', 'R2_ENDPOINT', 'R2_PUBLIC_URL', 'R2_BUCKET']) {
+    env[name] = (env[name] || '').trim();
+  }
   const diagnostics = credentialDiagnostics(env);
   for (const [name, diagnostic] of Object.entries(diagnostics)) {
     if (!diagnostic.validFormat) throw new Error(`${name} 格式无效；请填写 R2 S3 凭据原值，不要包含说明文字、引号或内部空白。`);
@@ -23,7 +25,7 @@ function r2Config(env) {
     let url;
     try { url = new URL(env[name]); } catch { throw new Error(`${name} 必须是完整 HTTPS 地址`); }
     if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash
-      || env[name] !== env[name].trim()) throw new Error(`${name} 必须是无凭据、查询参数和空白的 HTTPS 地址`);
+      || /[\s\x00-\x1f\x7f]/.test(env[name])) throw new Error(`${name} 必须是无凭据、查询参数和内部空白的 HTTPS 地址`);
   }
   if (!/^[a-z0-9][a-z0-9.-]*[a-z0-9]$/.test(env.R2_BUCKET || '')) throw new Error('R2_BUCKET 格式无效');
   return { endpoint: env.R2_ENDPOINT.replace(/\/+$/, ''), bucket: env.R2_BUCKET,

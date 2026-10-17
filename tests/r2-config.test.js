@@ -34,8 +34,14 @@ test('pasted boundary line endings are removed without changing the credential i
 test('R2 endpoint and public origin reject accidental credentials, queries and whitespace', () => {
   for (const name of ['R2_ENDPOINT', 'R2_PUBLIC_URL']) {
     for (const bad of ['http://example.com', 'https://user:password@example.com',
-      'https://example.com?token=secret', ' https://example.com']) {
+      'https://example.com?token=secret', 'https://examp\nle.com']) {
       assert.throws(() => r2Config({ ...env, [name]: bad }), new RegExp(name));
     }
   }
+});
+
+test('pasted public URL and bucket line endings are normalized with the same boundary-only policy', () => {
+  assert.deepEqual(r2Config({ ...env, R2_PUBLIC_URL: env.R2_PUBLIC_URL + '\n',
+    R2_ENDPOINT: '\n' + env.R2_ENDPOINT, R2_BUCKET: env.R2_BUCKET + '\r\n' }), r2Config(env));
+  assert.throws(() => r2Config({ ...env, R2_BUCKET: 'test\nbucket' }), /R2_BUCKET/);
 });
