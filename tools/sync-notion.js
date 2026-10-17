@@ -37,6 +37,7 @@ const crypto = require('crypto');
 const { frontmatterValue, removeStalePosts } = require('./post-files');
 const { stableBlockContent, stableMarkdown, hasTemporaryNotionImages } = require('./content-fingerprint');
 const { r2Config } = require('./r2-config');
+const { verifyPublicImage } = require('./r2-images');
 
 // ============================================================
 // 配置 - 从环境变量读取
@@ -166,7 +167,9 @@ async function uploadToR2(buffer, filename, contentType) {
     ContentType: contentType,
   }));
 
-  return `${config.publicUrl}/${key}`;
+  const publicUrl = `${config.publicUrl}/${key}`;
+  await verifyPublicImage(publicUrl);
+  return publicUrl;
 }
 
 /** 将文件名转为合法的 Hexo slug */
@@ -327,7 +330,7 @@ async function processPage(pageId, pageTitle, createdTime, blocks, contentHash, 
         console.log(`  ✅ 已上传: ${r2Url}`);
       } catch (err) {
         // Do not expose signed requests or credentials in nested SDK exceptions.
-        throw new Error(`图片转存失败，文章未保存（${err.name}，HTTP ${err.$metadata?.httpStatusCode || '无响应'}）`);
+        throw new Error(`图片转存失败，文章未保存（${err.name}，HTTP ${err.$metadata?.httpStatusCode || err.statusCode || '无响应'}）`);
       }
     }
   }
