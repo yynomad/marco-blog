@@ -11,6 +11,8 @@ function createManifest(posts, commit, now = new Date()) {
       title: post.title,
       path: post.path,
       hash: crypto.createHash('sha256').update(post.content || '').digest('hex'),
+      // Stable across title/permalink changes, without publishing the Notion page ID.
+      ...(post.notion_id ? { id: crypto.createHash('sha256').update(post.notion_id).digest('hex') } : {}),
     }));
   const routes = new Set();
   for (const article of articles) {
