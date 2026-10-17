@@ -1,6 +1,7 @@
 ---
 title: Wise 开户实操经验分享
 date: 2026-02-11
+notion_id: 304f66ff-04f8-801d-b292-e17a0cbb5a7e
 notion_hash: 27ee4556bc1079315400dd80cbdce4e5
 tags:
 categories:
