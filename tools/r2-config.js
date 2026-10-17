@@ -5,14 +5,19 @@ function credentialDiagnostics(env) {
     const value = env[name] || '';
     return [name, { present: Boolean(value), whitespace: /\s/.test(value),
       nonAscii: /[^\x00-\x7f]/.test(value), controlCharacters: /[\x00-\x1f\x7f]/.test(value),
-      validFormat: new RegExp(`^[a-fA-F0-9]{${name === 'R2_ACCESS_KEY' ? 32 : 64}}$`).test(value) }];
+      validFormat: new RegExp(`^[a-fA-F0-9]{${name === 'R2_ACCESS_KEY' ? 32 : 64}}$`).test(value),
+      validAfterTrimming: new RegExp(`^[a-fA-F0-9]{${name === 'R2_ACCESS_KEY' ? 32 : 64}}$`).test(value.trim()) }];
   }));
 }
 
 function r2Config(env) {
+  // Secrets pasted through a terminal can contain trailing line endings.
+  // Only trim the boundary; reject quotes, labels and any embedded whitespace.
+  env = { ...env, R2_ACCESS_KEY: (env.R2_ACCESS_KEY || '').trim(),
+    R2_SECRET_KEY: (env.R2_SECRET_KEY || '').trim() };
   const diagnostics = credentialDiagnostics(env);
   for (const [name, diagnostic] of Object.entries(diagnostics)) {
-    if (!diagnostic.validFormat) throw new Error(`${name} 格式无效；请填写 R2 S3 凭据原值，不要包含说明文字、引号或空白。`);
+    if (!diagnostic.validFormat) throw new Error(`${name} 格式无效；请填写 R2 S3 凭据原值，不要包含说明文字、引号或内部空白。`);
   }
   for (const name of ['R2_ENDPOINT', 'R2_PUBLIC_URL']) {
     let url;
