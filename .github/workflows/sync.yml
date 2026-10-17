@@ -7,7 +7,12 @@ concurrency:
 on:
   schedule:
     - cron: '0 6 * * *'     # 每天北京时间 14:00 (UTC 6:00) 跑一次
-  workflow_dispatch:         # 也可以手动触发
+  workflow_dispatch:
+    inputs:
+      diagnose_only:
+        description: '只检查 R2 配置和存储桶认证，不同步文章'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -32,6 +37,7 @@ jobs:
 
       - name: Sync from Notion
         id: sync
+        if: inputs.diagnose_only != true
         env:
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
           NOTION_DATABASE_ID: ${{ secrets.NOTION_DATABASE_ID }}
@@ -41,6 +47,16 @@ jobs:
           R2_BUCKET: ${{ secrets.R2_BUCKET }}
           R2_PUBLIC_URL: ${{ secrets.R2_PUBLIC_URL }}
         run: npm run sync
+
+      - name: Diagnose R2 credentials
+        if: inputs.diagnose_only == true
+        env:
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_ACCESS_KEY: ${{ secrets.R2_ACCESS_KEY }}
+          R2_SECRET_KEY: ${{ secrets.R2_SECRET_KEY }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          R2_PUBLIC_URL: ${{ secrets.R2_PUBLIC_URL }}
+        run: node tools/check-r2.js
 
       - name: Commit & Push changes
         if: always() && !cancelled() && steps.sync.outcome != 'skipped'

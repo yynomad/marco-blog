@@ -40,4 +40,9 @@ function stableMarkdown(value) {
   });
 }
 
-module.exports = { stableFileUrl, stableBlockContent, stableMarkdown };
+function hasTemporaryNotionImages(markdown) {
+  return [...markdown.matchAll(/!\[[^\]]*\]\((https:\/\/[^\s)]+)/g)]
+    .some(([, url]) => stableMarkdown(url) !== url);
+}
+
+module.exports = { stableFileUrl, stableBlockContent, stableMarkdown, hasTemporaryNotionImages };

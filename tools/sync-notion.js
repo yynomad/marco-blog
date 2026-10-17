@@ -35,7 +35,9 @@ if (fs.existsSync(envPath)) {
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 const crypto = require('crypto');
 const { frontmatterValue, removeStalePosts } = require('./post-files');
-const { stableBlockContent, stableMarkdown } = require('./content-fingerprint');
+const { stableBlockContent, stableMarkdown, hasTemporaryNotionImages } = require('./content-fingerprint');
+const { r2Config } = require('./r2-config');
+const { verifyPublicImage } = require('./r2-images');
 
 // ============================================================
 // 配置 - 从环境变量读取
@@ -43,12 +45,6 @@ const { stableBlockContent, stableMarkdown } = require('./content-fingerprint');
 
 const NOTION_TOKEN = process.env.NOTION_TOKEN;
 const NOTION_DATABASE_ID = process.env.NOTION_DATABASE_ID;
-
-const R2_ENDPOINT = process.env.R2_ENDPOINT;
-const R2_ACCESS_KEY = process.env.R2_ACCESS_KEY;
-const R2_SECRET_KEY = process.env.R2_SECRET_KEY;
-const R2_BUCKET = process.env.R2_BUCKET;
-const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL;
 
 const POSTS_DIR = path.join(__dirname, '..', 'source', '_posts');
 
@@ -125,15 +121,7 @@ async function getPageBlocks(pageId) {
   return allBlocks;
 }
 
-const s3 = new S3Client({
-  endpoint: R2_ENDPOINT,
-  region: 'auto',
-  credentials: {
-    accessKeyId: R2_ACCESS_KEY,
-    secretAccessKey: R2_SECRET_KEY,
-  },
-  forcePathStyle: true,
-});
+let s3;
 
 // ============================================================
 // 工具函数
@@ -164,19 +152,24 @@ async function downloadImage(url) {
 
 /** 上传到 R2 */
 async function uploadToR2(buffer, filename, contentType) {
+  const config = r2Config(process.env);
+  s3 ||= new S3Client({ endpoint: config.endpoint, region: 'auto',
+    credentials: config.credentials, forcePathStyle: true });
   const now = new Date();
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, '0');
   const key = `${year}/${month}/${filename}`;
 
   await s3.send(new PutObjectCommand({
-    Bucket: R2_BUCKET,
+    Bucket: config.bucket,
     Key: key,
     Body: buffer,
     ContentType: contentType,
   }));
 
-  return `${R2_PUBLIC_URL}/${key}`;
+  const publicUrl = `${config.publicUrl}/${key}`;
+  await verifyPublicImage(publicUrl);
+  return publicUrl;
 }
 
 /** 将文件名转为合法的 Hexo slug */
@@ -280,10 +273,8 @@ async function blocksToMarkdown(blocks, imageMap) {
         if (imageMap[blockId]) {
           md += `![${block.image.caption?.[0]?.plain_text || ''}](${imageMap[blockId]})\n\n`;
         } else {
-          // fallback: 用原始 URL
-          const url = block.image.type === 'external'
-            ? block.image.external.url
-            : block.image.file.url;
+          if (block.image.type !== 'external') throw new Error('Notion 图片尚未成功转存 R2，拒绝保存临时链接');
+          const url = block.image.external.url;
           md += `![${block.image.caption?.[0]?.plain_text || ''}](${url})\n\n`;
         }
         break;
@@ -316,7 +307,7 @@ async function blocksToMarkdown(blocks, imageMap) {
 // 处理单篇文章
 // ============================================================
 
-async function processPage(pageId, pageTitle, createdTime, blocks, contentHash) {
+async function processPage(pageId, pageTitle, createdTime, blocks, contentHash, services = {}) {
   console.log(`\n📄 处理文章: ${pageTitle}`);
 
   // 处理图片：下载 → 上传 R2
@@ -330,12 +321,16 @@ async function processPage(pageId, pageTitle, createdTime, blocks, contentHash) 
       console.log(`  📷 下载图片: ${url.slice(0, 60)}...`);
 
       try {
-        const { buffer, filename, contentType } = await downloadImage(url);
-        const r2Url = await uploadToR2(buffer, filename, contentType);
+        const { buffer, filename, contentType } = await (services.downloadImage || downloadImage)(url);
+        const r2Url = await (services.uploadToR2 || uploadToR2)(buffer, filename, contentType);
+        if (!r2Url.startsWith('https://') || stableMarkdown(r2Url) !== r2Url) {
+          throw new Error('Invalid permanent image URL');
+        }
         imageMap[block.id] = r2Url;
         console.log(`  ✅ 已上传: ${r2Url}`);
       } catch (err) {
-        console.error(`  ❌ 图片处理失败: ${err.message}`);
+        // Do not expose signed requests or credentials in nested SDK exceptions.
+        throw new Error(`图片转存失败，文章未保存（${err.name}，HTTP ${err.$metadata?.httpStatusCode || err.statusCode || '无响应'}）`);
       }
     }
   }
@@ -361,7 +356,7 @@ categories:
 
   // 保存文件
   const filename = `${slug}.md`;
-  const filepath = path.join(POSTS_DIR, filename);
+  const filepath = path.join(services.postsDir || POSTS_DIR, filename);
   fs.writeFileSync(filepath, fullMd, 'utf-8');
   console.log(`  ✅ 已保存: ${filename}`);
 
@@ -387,10 +382,7 @@ async function main(services = {}) {
     console.error('❌ 请设置环境变量: NOTION_TOKEN 和 NOTION_DATABASE_ID');
     process.exit(1);
   }
-  if (!R2_SECRET_KEY) {
-    console.error('❌ 请设置环境变量: R2_SECRET_KEY');
-    process.exit(1);
-  }
+  if (!services.processPage) r2Config(process.env);
 
   // 确保 posts 目录存在
   fs.mkdirSync(postsDir, { recursive: true });
@@ -442,9 +434,10 @@ async function main(services = {}) {
     if (pageStatus === '已同步') {
       const storedHash = readHash(slug);
       const existing = fs.existsSync(existingPath) ? fs.readFileSync(existingPath, 'utf8') : null;
+      const repairImages = existing && hasTemporaryNotionImages(existing);
       const sameMetadata = !existing || (frontmatterValue(existing, 'permalink') === (customPermalink || '')
         && frontmatterValue(existing, 'title') === title);
-      if (storedHash && storedHash === contentHash && sameMetadata) {
+      if (storedHash && storedHash === contentHash && sameMetadata && !repairImages) {
         if (existing) {
           const updated = recordFingerprint(existing, page.id, contentHash);
           if (updated !== existing) fs.writeFileSync(existingPath, updated);
@@ -455,9 +448,11 @@ async function main(services = {}) {
       }
       // Upgrade legacy fingerprints without rewriting unchanged image URLs or
       // resetting an already published page to pending publication.
-      if (storedHash && existing && sameMetadata) {
+      if (storedHash && existing && sameMetadata && !repairImages) {
         const body = existing.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/, '');
-        const expected = '<!-- more -->\n\n' + await blocksToMarkdown(blocks, {});
+        const comparisonImages = Object.fromEntries(blocks.filter(block => block.type === 'image'
+          && block.image.type === 'file').map(block => [block.id, block.image.file.url]));
+        const expected = '<!-- more -->\n\n' + await blocksToMarkdown(blocks, comparisonImages);
         if (stableMarkdown(body).trim() === stableMarkdown(expected).trim()) {
           fs.writeFileSync(existingPath, recordFingerprint(existing, page.id, contentHash));
           cleanup();
@@ -465,6 +460,7 @@ async function main(services = {}) {
           continue;
         }
       }
+      if (repairImages) console.log(`  🔧 修复 Notion 临时图片链接: ${title}`);
       console.log(`  📝 内容已变化，重新同步: ${title}`);
     }
 
@@ -508,4 +504,4 @@ if (require.main === module) main().catch(err => {
   process.exit(1);
 });
 
-module.exports = { main, computeContentHash, slugify };
+module.exports = { main, computeContentHash, slugify, processPage, blocksToMarkdown };

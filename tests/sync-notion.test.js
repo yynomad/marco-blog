@@ -5,7 +5,11 @@ const assert = require('node:assert/strict');
 // Override credentials before loading the script; tests never access real services.
 for (const name of ['NOTION_TOKEN', 'NOTION_DATABASE_ID', 'R2_SECRET_KEY', 'R2_ACCESS_KEY']) process.env[name] = 'test';
 process.env.R2_ENDPOINT = 'https://example.com';
-const { main, computeContentHash, slugify } = require('../tools/sync-notion');
+process.env.R2_ACCESS_KEY = 'a'.repeat(32);
+process.env.R2_SECRET_KEY = 'b'.repeat(64);
+process.env.R2_BUCKET = 'test-bucket';
+process.env.R2_PUBLIC_URL = 'https://images.example.com';
+const { main, computeContentHash, slugify, processPage, blocksToMarkdown } = require('../tools/sync-notion');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -97,13 +101,12 @@ test('a title change with the same slug and unchanged body still synchronizes', 
   assert.equal(saved, true);
 });
 
-test('legacy signature-only updates migrate fingerprints without rewriting images or publication status', async t => {
+test('signature renewal leaves articles already using permanent R2 images untouched', async t => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'blog-fingerprint-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const title = '用 AI 做项目的一些思考';
   const file = path.join(dir, `${slugify(title)}.md`);
-  const oldUrl = signedImage('old')[0].image.file.url;
-  const original = `---\ntitle: ${JSON.stringify(title)}\nnotion_id: page-1\nnotion_hash: legacy\n---\n\n<!-- more -->\n\n![](${oldUrl})\n\n`;
+  const original = `---\ntitle: ${JSON.stringify(title)}\nnotion_id: page-1\nnotion_hash: ${computeContentHash(signedImage('old'))}\n---\n\n<!-- more -->\n\n![](https://images.example.com/permanent.png)\n\n`;
   fs.writeFileSync(file, original);
   const blocks = signedImage('renewed');
   const services = { postsDir: dir,
@@ -115,13 +118,67 @@ test('legacy signature-only updates migrate fingerprints without rewriting image
   };
   await main(services);
   const migrated = fs.readFileSync(file, 'utf8');
-  assert.equal(migrated, original.replace('notion_hash: legacy', `notion_hash: ${computeContentHash(blocks)}`));
+  assert.equal(migrated, original);
   await main(services);
   assert.equal(fs.readFileSync(file, 'utf8'), migrated);
   blocks[0].image.file.url = signedImage('renewed', 'replacement')[0].image.file.url;
   let regenerated = false;
   await main({ ...services, processPage: async () => { regenerated = true; }, notionAPI: async () => {} });
   assert.equal(regenerated, true, 'replacing an actual image must still sync');
+});
+
+test('expired Notion image references are repaired even when the content hash is unchanged', async t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'blog-image-repair-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const title = '用 AI 做项目的一些思考';
+  const blocks = signedImage('fresh');
+  const hash = computeContentHash(blocks);
+  const file = path.join(dir, `${slugify(title)}.md`);
+  const original = `---\ntitle: ${JSON.stringify(title)}\nnotion_id: page-1\nnotion_hash: ${hash}\n---\n\n<!-- more -->\n\n![](${signedImage('expired')[0].image.file.url})\n\n`;
+  fs.writeFileSync(file, original);
+  let uploaded = 0;
+  let marked = 0;
+  const services = { postsDir: dir,
+    queryDatabase: async () => [{ ...page, properties: { ...page.properties, '状态': { status: { name: '已同步' } } } }],
+    getPageBlocks: async () => blocks, getStoredHash: () => hash,
+    processPage: (...args) => processPage(...args, { postsDir: dir,
+      downloadImage: async url => {
+        assert.equal(url, blocks[0].image.file.url);
+        return { buffer: Buffer.from('image'), filename: 'image.png', contentType: 'image/png' };
+      },
+      uploadToR2: async () => { uploaded++; return 'https://images.example.com/permanent.png'; },
+    }),
+    notionAPI: async () => { marked++; },
+  };
+  await main(services);
+  assert.equal(uploaded, 1);
+  assert.equal(marked, 1);
+  assert.match(fs.readFileSync(file, 'utf8'), /https:\/\/images\.example\.com\/permanent\.png/);
+  assert(!fs.readFileSync(file, 'utf8').includes('X-Amz-'));
+  blocks[0].image.file.url = signedImage('later')[0].image.file.url;
+  await main(services);
+  assert.equal(uploaded, 1);
+  assert.equal(marked, 1);
+});
+
+test('R2 failures preserve the previous article, fail sync and never mark it published', async t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'blog-image-failure-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const title = '用 AI 做项目的一些思考';
+  const file = path.join(dir, `${slugify(title)}.md`);
+  const original = 'An existing article with usable images';
+  fs.writeFileSync(file, original);
+  let marked = false;
+  await assert.rejects(main({ postsDir: dir,
+    queryDatabase: async () => [page], getPageBlocks: async () => signedImage('fresh'),
+    processPage: (...args) => processPage(...args, { postsDir: dir,
+      downloadImage: async () => ({ buffer: Buffer.from('image'), filename: 'image.png', contentType: 'image/png' }),
+      uploadToR2: async () => { throw new Error('secret-request-must-not-be-logged'); },
+    }), notionAPI: async () => { marked = true; },
+  }), /同步未完成/);
+  assert.equal(fs.readFileSync(file, 'utf8'), original);
+  assert.equal(marked, false);
+  await assert.rejects(blocksToMarkdown(signedImage('fresh'), {}), /拒绝保存临时链接/);
 });
 
 test('unchanged legacy articles gain stable page identities without republishing their bodies', async t => {
