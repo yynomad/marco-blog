@@ -35,6 +35,7 @@ if (fs.existsSync(envPath)) {
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 const crypto = require('crypto');
 const { frontmatterValue, removeStalePosts } = require('./post-files');
+const { stableBlockContent, stableMarkdown } = require('./content-fingerprint');
 
 // ============================================================
 // 配置 - 从环境变量读取
@@ -197,7 +198,7 @@ function computeContentHash(blocks) {
   const content = JSON.stringify(blocks.map(b => ({
     id: b.id,
     type: b.type,
-    [b.type]: b[b.type],
+    [b.type]: stableBlockContent(b[b.type]),
   })));
   return crypto.createHash('md5').update(content).digest('hex');
 }
@@ -209,6 +210,14 @@ function getStoredHash(slug) {
   const content = fs.readFileSync(filepath, 'utf-8');
   const match = content.match(/^notion_hash:\s*(.+)$/m);
   return match ? match[1].trim() : null;
+}
+
+function recordFingerprint(content, pageId, hash) {
+  let updated = content.replace(/^notion_hash:[^\r\n]*$/m, `notion_hash: ${hash}`);
+  if (!frontmatterValue(updated, 'notion_id')) {
+    updated = updated.replace(/^notion_hash:/m, `notion_id: ${pageId}\nnotion_hash:`);
+  }
+  return updated;
 }
 
 // ============================================================
@@ -436,9 +445,25 @@ async function main(services = {}) {
       const sameMetadata = !existing || (frontmatterValue(existing, 'permalink') === (customPermalink || '')
         && frontmatterValue(existing, 'title') === title);
       if (storedHash && storedHash === contentHash && sameMetadata) {
-        if (fs.existsSync(existingPath)) cleanup();
+        if (existing) {
+          const updated = recordFingerprint(existing, page.id, contentHash);
+          if (updated !== existing) fs.writeFileSync(existingPath, updated);
+          cleanup();
+        }
         console.log(`  ⏭️  内容未变化，跳过: ${title}`);
         continue;
+      }
+      // Upgrade legacy fingerprints without rewriting unchanged image URLs or
+      // resetting an already published page to pending publication.
+      if (storedHash && existing && sameMetadata) {
+        const body = existing.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/, '');
+        const expected = '<!-- more -->\n\n' + await blocksToMarkdown(blocks, {});
+        if (stableMarkdown(body).trim() === stableMarkdown(expected).trim()) {
+          fs.writeFileSync(existingPath, recordFingerprint(existing, page.id, contentHash));
+          cleanup();
+          console.log(`  ⏭️  正文未变化，仅更新内容指纹: ${title}`);
+          continue;
+        }
       }
       console.log(`  📝 内容已变化，重新同步: ${title}`);
     }

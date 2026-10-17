@@ -21,10 +21,14 @@ function publicationNotice(previous, current) {
     if (previous?.status === 'failed' && previous.stage === current.stage) return null;
     return `❌ 博客发布失败\n阶段：${current.stage}\n${current.detail}\n${current.url}`;
   }
-  const changed = current.articles.filter(article => previous?.articles?.[article.path] !== article.hash);
-  if (previous?.status !== 'failed' && changed.length === 0) return null;
+  // An absent cache establishes a baseline; it must not announce the archive.
+  // A known route stays known when its body, title or temporary image URLs change.
+  const knownIds = new Set(previous?.articleIds || []);
+  const added = previous?.articles ? current.articles.filter(article =>
+    !Object.hasOwn(previous.articles, article.path) && (!article.id || !knownIds.has(article.id))) : [];
+  if (previous?.status !== 'failed' && added.length === 0) return null;
   const heading = previous?.status === 'failed' ? '✅ 博客发布已恢复' : '✅ 博客文章已上线';
-  const list = changed.slice(0, 5).map(article => `${article.title}\n${new URL(article.path, current.site).href}`);
+  const list = added.slice(0, 5).map(article => `${article.title}\n${new URL(article.path, current.site).href}`);
   return `${heading}\n${list.join('\n') || current.site}`;
 }
 
@@ -160,11 +164,15 @@ async function main(env = process.env, fetchImpl = fetch) {
       if (notice) await sendTelegram(notice, env, fetchImpl);
       if (current.status === 'published') {
         state.publication = { status: 'published', commit: current.commit,
-          articles: Object.fromEntries(current.articles.map(article => [article.path, article.hash])) };
+          articleIds: [...new Set([...(state.publication?.articleIds || []),
+            ...current.articles.flatMap(article => article.id ? [article.id] : [])])],
+          // Keep removed routes too, so restoring an old article is not a new publication.
+          articles: { ...state.publication?.articles,
+            ...Object.fromEntries(current.articles.map(article => [article.path, article.hash])) } };
         const manifest = await jsonRequest(new URL(`deployment.json?revision=${current.commit}`, site), {}, fetchImpl);
         await markPublished(manifest, env, fetchImpl);
       } else {
-        // Retain the last published articles so recovery only lists changed articles.
+        // Retain known routes so recovery only lists genuinely new articles.
         state.publication = { ...state.publication, status: 'failed', stage: current.stage, commit: current.commit };
       }
     }
