@@ -212,6 +212,14 @@ function getStoredHash(slug) {
   return match ? match[1].trim() : null;
 }
 
+function recordFingerprint(content, pageId, hash) {
+  let updated = content.replace(/^notion_hash:[^\r\n]*$/m, `notion_hash: ${hash}`);
+  if (!frontmatterValue(updated, 'notion_id')) {
+    updated = updated.replace(/^notion_hash:/m, `notion_id: ${pageId}\nnotion_hash:`);
+  }
+  return updated;
+}
+
 // ============================================================
 // Notion Block → Markdown 转换
 // ============================================================
@@ -437,7 +445,11 @@ async function main(services = {}) {
       const sameMetadata = !existing || (frontmatterValue(existing, 'permalink') === (customPermalink || '')
         && frontmatterValue(existing, 'title') === title);
       if (storedHash && storedHash === contentHash && sameMetadata) {
-        if (fs.existsSync(existingPath)) cleanup();
+        if (existing) {
+          const updated = recordFingerprint(existing, page.id, contentHash);
+          if (updated !== existing) fs.writeFileSync(existingPath, updated);
+          cleanup();
+        }
         console.log(`  ⏭️  内容未变化，跳过: ${title}`);
         continue;
       }
@@ -447,7 +459,7 @@ async function main(services = {}) {
         const body = existing.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/, '');
         const expected = '<!-- more -->\n\n' + await blocksToMarkdown(blocks, {});
         if (stableMarkdown(body).trim() === stableMarkdown(expected).trim()) {
-          fs.writeFileSync(existingPath, existing.replace(/^notion_hash:.*$/m, `notion_hash: ${contentHash}`));
+          fs.writeFileSync(existingPath, recordFingerprint(existing, page.id, contentHash));
           cleanup();
           console.log(`  ⏭️  正文未变化，仅更新内容指纹: ${title}`);
           continue;

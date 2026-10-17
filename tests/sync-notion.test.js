@@ -123,3 +123,20 @@ test('legacy signature-only updates migrate fingerprints without rewriting image
   await main({ ...services, processPage: async () => { regenerated = true; }, notionAPI: async () => {} });
   assert.equal(regenerated, true, 'replacing an actual image must still sync');
 });
+
+test('unchanged legacy articles gain stable page identities without republishing their bodies', async t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'blog-identity-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const title = '用 AI 做项目的一些思考';
+  const file = path.join(dir, `${slugify(title)}.md`);
+  const hash = computeContentHash([]);
+  const original = `---\ntitle: ${JSON.stringify(title)}\nnotion_hash: ${hash}\n---\n\nExisting body\n`;
+  fs.writeFileSync(file, original);
+  await main({ postsDir: dir,
+    queryDatabase: async () => [{ ...page, properties: { ...page.properties, '状态': { status: { name: '已同步' } } } }],
+    getPageBlocks: async () => [], getStoredHash: () => hash,
+    processPage: async () => assert.fail('unchanged article must not be regenerated'),
+    notionAPI: async () => assert.fail('published status must stay unchanged'),
+  });
+  assert.equal(fs.readFileSync(file, 'utf8'), original.replace('notion_hash:', 'notion_id: page-1\nnotion_hash:'));
+});
