@@ -3,7 +3,7 @@ title: "Oracle 免费服务器搭建双节点：从 SSH、REALITY 到 FlClash �
 permalink: "oracle-free-xray-reality-guide"
 date: 2026-10-30
 notion_id: 409f66ff-04f8-8170-8893-ca73e2789bdb
-notion_hash: 111283ae159c251aea5dffdcb89cad67
+notion_hash: 86c1a10d1cdb005a70deb079f73a07a3
 tags:
 categories:
 ---
@@ -16,7 +16,7 @@ categories:
 
 核对日期：2026-10-31。服务端实测 Xray v26.10.29，隔离连接验证使用 mihomo v1.19.33。这是本文验证过的组合，不代表任意新版都兼容。203.0.113 开头的地址、sub.example.com、YOUR 开头的字段都是示例，不能直接连接。本文不公开真实节点地址、账号、私钥、UUID 或订阅链接。
 
-![双节点搭建流程示意，非控制台截图](https://img.heyyao.com/2026/10/fd4e4be712b31fe63b56c8207fdf2002.png)
+![双节点搭建流程示意，非控制台截图](https://img.heyyao.com/2026/11/fd4e4be712b31fe63b56c8207fdf2002.png)
 
 ## 一、先明白我们要搭什么
 
@@ -33,10 +33,6 @@ REALITY 节点本身不要求购买域名或申请自己的证书；可选的 HT
 ARM 是另一种规格，当前 Always Free A1 总量为 2 OCPU / 12 GB；本文不需要它。AMD 最多两台，不是可以一直继续开 AMD。提示无库存就先停，不要切换到收费规格。
 
 核对 Always Free 资格、Home region、已有存储和费用用量，不能仅凭估价框或某一个免费标签判断整套配置不会收费。不要额外开启付费备份、高性能存储等选项。
-
-官方额度：https://docs.oracle.com/en-us/iaas/Content/FreeTier/freetier_topic-Always_Free_Resources.htm
-
-![创建选项核对示意，非 Oracle 控制台原图](https://img.heyyao.com/2026/10/3fe51df05c2966d725b8851f2abf7aff.png)
 
 进入 Oracle 控制台的 Compute → Instances → Create instance，名字可以填 oracle-main。按下面顺序核对：
 
@@ -372,61 +368,7 @@ FlClash 进入 配置 → 添加 / ＋ → 文件，选择 YAML，保存并选�
 
 示例为减少第一次导入的资源依赖，没有使用 GeoIP 数据下载。它只让私网和 .cn 域名直连，其他流量经节点，不是“所有国内网站都自动直连”。连接跑通后，再逐步增加分流规则。
 
-## 八、两台都 Timeout：这次实际怎么排查
-
-这是本次真实的 FlClash 截图，只保留节点名称和 Timeout，不含地址或凭据：
-
-![本次双节点 Timeout 的真实截图，无节点地址或凭据](https://img.heyyao.com/2026/10/8e91aba969e6ca3b0a97771f34969098.png)
-
-### 8.1 先查服务器和两层防火墙
-
-在服务器执行：
-
-```bash
-sudo systemctl is-active xray
-sudo ss -lntp | grep ':443'
-sudo journalctl -u xray -n 40 --no-pager
-sudo iptables -C INPUT -p tcp --dport 443 -m comment --comment oracle-guide -j ACCEPT
-```
-
-如果使用 UFW，最后一条换成 sudo ufw status numbered。再回控制台核对规则是否关联了正确实例，以及端口号是否一致。日志自己看，不原样公开带有账号信息的完整配置。
-
-### 8.2 再查 REALITY 兼容字段
-
-本次服务正常、端口正常，独立 Xray 客户端能连接，但 mihomo 握手失败。两处补上下面的兼容选项并重新加载配置后，真实 HTTPS 和出口 IP 检查都通过：
-
-```yaml
-client-fingerprint: chrome
-skip-cert-verify: false
-reality-opts:
-  public-key: YOUR_PUBLIC_KEY
-  short-id: YOUR_SHORT_ID
-  support-x25519mlkem768: true
-```
-
-![客户端兼容字段示意，所有参数均为占位值](https://img.heyyao.com/2026/10/cf9b11bcaafc958a38ccff828d41a50c.png)
-
-缩进要正确：support-x25519mlkem768 在 reality-opts 内，与 public-key / short-id 同层；主用和备用都要加。保存后重新选中或更新配置，不能只改文件、继续用内核里的旧配置。不要把 skip-cert-verify 改成 true 来掩盖错误。
-
-mihomo 官方文档也提示近期 Xray 版本存在兼容性变化。这个字段解决的是本文实测组合，不保证所有未来版本都适用。换版本之后仍需分别验证两台真实连接。
-
-字段文档：https://wiki.metacubex.one/config/proxies/tls/#reality-opts
-
-REALITY 文档：https://xtls.github.io/config/transports/reality.html
-
-### 8.3 不只测延迟，要测真实 HTTPS
-
-开启客户端系统代理或你平常使用的连接方式，在自己的电脑执行：
-
-```bash
-curl -x http://127.0.0.1:7890 --connect-timeout 10 --max-time 20 https://www.cloudflare.com/cdn-cgi/trace
-```
-
-如果 mixed-port 不是 7890，改成自己的端口。逐个手动选主用、备用，返回的 ip 应分别等于当前节点的公网出口地址。此项验证这次 HTTPS 转发，不代表 UDP、手机或所有应用都已验证。
-
-本次修复后两台都通过这项检查。延迟单位是毫秒，带宽单位是 Mbps；有延迟数字不代表下载快。先分清握手失败和线路慢，再在不同时段用同一个测试资源测下载速度，不要看到 Timeout 就认定是免费机性能差。
-
-## 九、可选：做成自己的 HTTPS 订阅
+## 八、可选：做成自己的 HTTPS 订阅
 
 本地文件已经能用，不买域名也可以停在这里。订阅只是让客户端从同一地址重新下载配置，不会自动知道服务器改了什么，也不会加速。
 
@@ -434,7 +376,7 @@ curl -x http://127.0.0.1:7890 --connect-timeout 10 --max-time 20 https://www.clo
 
 为避免与 REALITY 的 TCP 443 冲突，订阅监听 HTTPS 8443；TCP 80 用于证书申请和续期。这部分是独立配置示例，域名解析与证书签发需要你在自己的环境验证，不是所有网站环境的通用迁移命令。
 
-### 9.1 域名和端口
+### 8.1 域名和端口
 
 在自己的 DNS 控制台添加 A：名称 sub，值为主用服务器公网 IPv4，使用仅 DNS。sub.example.com 必须换成你拥有的真实域名。暂不设置 AAAA，也不启用 Cloudflare 橙云代理。
 
@@ -446,7 +388,7 @@ sudo systemctl enable --now oracle-port@80.service oracle-port@8443.service
 
 使用 UFW 则分别允许 80/tcp、8443/tcp。确认 80 和 8443 没有已有服务，不要停掉仍在用的网站来腾端口。
 
-### 9.2 安装独立 Caddy（服务器执行）
+### 8.2 安装独立 Caddy（服务器执行）
 
 只在没有现有 Caddy 的新机器执行：
 
@@ -469,7 +411,7 @@ INSTALL_CADDY
 
 官方说明：https://caddyserver.com/docs/install#debian-ubuntu-raspbian
 
-### 9.3 上传客户端 YAML
+### 8.3 上传客户端 YAML
 
 在自己的电脑切到保存 YAML 的目录，确认所有 YOUR_* 已替换后执行：
 
@@ -486,7 +428,7 @@ rm ~/Oracle-FlClash.yaml
 
 只上传客户端 YAML，不上传 SSH 私钥或服务端 config.json。YAML 包含可用节点的凭据，不能提交到公开仓库。
 
-### 9.4 生成独立 Caddyfile
+### 8.4 生成独立 Caddyfile
 
 先把命令里的 sub.example.com 换成自己的真实域名，再整块复制。它备份刚安装的默认配置，并生成 256 位随机路径。不要重复生成，否则旧订阅地址会改变：
 
@@ -575,7 +517,7 @@ sudo journalctl -u caddy -n 30 --no-pager
 
 输出地址里的 :8443 和随机路径必须保留。Caddy 用 TCP 80 做 HTTP 证书验证，DNS 必须指向这台服务器，80 必须可从公网访问。示例显式关闭 TLS-ALPN challenge，避免验证流量与 REALITY 的 443 冲突。不要用 curl -k、跳过证书校验或裸 HTTP 传真实凭据。
 
-### 9.5 验证并导入
+### 8.5 验证并导入
 
 在自己的电脑打开完整地址，应下载 YAML；访问首页或错误路径应返回 404。替换下面的占位地址测试：
 
@@ -592,7 +534,7 @@ curl -I 'https://sub.example.com:8443/sub/wrong-token/clash.yaml'
 
 更新节点时，先改并验证本地 YAML，再上传覆盖 /srv/oracle-subscription/clash.yaml，最后在客户端更新。不重新生成路径。24 小时响应头是更新提示，是否自动更新取决于客户端设置；本文没有创建服务器定时任务。
 
-## 十、日常维护与暂停
+## 九、日常维护与暂停
 
 私钥和配置放在自己的加密备份里。暂停代理：
 
