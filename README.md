@@ -129,6 +129,7 @@ git clone https://github.com/tufu9441/maupassant-hexo.git themes/maupassant
 ### 图片不显示
 建议将图片放在 `source/images/` 目录下，使用相对路径引用。
 
+
 ## 📄 许可证
 
 MIT License
