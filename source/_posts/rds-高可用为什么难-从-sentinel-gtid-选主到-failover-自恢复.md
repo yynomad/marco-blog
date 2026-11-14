@@ -3,7 +3,7 @@ title: "RDS 高可用为什么难：从 Sentinel、GTID 选主到 Failover 自�
 permalink: "rds-ha-failover-design"
 date: 2026-11-12
 notion_id: 416f66ff-04f8-8142-b444-f773ef11d037
-notion_hash: de82967fc63c4e2febc8af3dbcb5c725
+notion_hash: cc465241aa969886361ebccb488b0bd8
 tags:
 categories:
 ---
