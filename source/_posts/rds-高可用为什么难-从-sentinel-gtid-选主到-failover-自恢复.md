@@ -3,7 +3,7 @@ title: "RDS 高可用为什么难：从 Sentinel、GTID 选主到 Failover 自�
 permalink: "rds-ha-failover-design"
 date: 2026-11-12
 notion_id: 416f66ff-04f8-8142-b444-f773ef11d037
-notion_hash: 164646c935090bd2775f783ac5b56a24
+notion_hash: d56af5573e33ec4fd8fb6f3e64e68539
 tags:
 categories:
 ---
@@ -160,13 +160,13 @@ Sentinel 连续探测失败，形成主观下线（S_DOWN）
 
 ## 四、第二道难题：复制延迟不同，怎样选择最安全的新主库？
 
+MySQL 从库的数据链路可以简化成：
+
 过去最容易犯的错误，是说“比较 executed_gtid_set 最大的从库”或“选择复制延迟最小的从库”。
 
 问题是：GTID 是事务集合，不是可以直接比较大小的数字；延迟指标也不能证明哪个副本保存了更多完整事务。
 
 ### 1. 区分已接收与已执行的 GTID
-
-MySQL 从库的数据链路可以简化成：
 
 ```plain text
 Primary Binlog
