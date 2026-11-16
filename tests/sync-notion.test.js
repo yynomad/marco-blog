@@ -51,6 +51,43 @@ test('Markdown comparison only ignores credentials on Notion hosted file URLs', 
   assert.equal(stableMarkdown(external), external);
 });
 
+const tableRow = cells => ({ id: `row-${cells.map(cell => cell.replace(/\W/g, '')).join('-')}`,
+  type: 'table_row', table_row: { cells: cells.map(text => [{ plain_text: text }]) } });
+
+test('Notion tables are rendered as Markdown tables', async () => {
+  const blocks = [{ id: 'table-1', type: 'table', table: {
+    table_width: 3, has_column_header: true, has_row_header: false,
+    children: [
+      tableRow(['目标', '含义', '关键问题']),
+      tableRow(['RTO', '故障后多久恢复服务', '从发现故障到恢复可写，耗时多久？']),
+      tableRow(['RPO', '故障后最多允许丢失多少数据', '客户端已确认成功的事务，会丢失多少？']),
+    ],
+  } }];
+  const md = await blocksToMarkdown(blocks, {});
+  assert.match(md, /^\| 目标 \| 含义 \| 关键问题 \|$/m);
+  assert.match(md, /^\| --- \| --- \| --- \|$/m);
+  assert.match(md, /^\| RTO \| 故障后多久恢复服务 \| 从发现故障到恢复可写，耗时多久？ \|$/m);
+});
+
+test('table cells escape pipes and newlines, and tables without headers keep all rows', async () => {
+  const blocks = [{ id: 'table-2', type: 'table', table: {
+    table_width: 2, has_column_header: false, has_row_header: false,
+    children: [tableRow(['a|b', 'line1\nline2']), tableRow(['c', 'd'])],
+  } }];
+  const md = await blocksToMarkdown(blocks, {});
+  assert.match(md, /^\|  \|  \|$/m);
+  assert.match(md, /^\| a\\\|b \| line1<br>line2 \|$/m);
+  assert.match(md, /^\| c \| d \|$/m);
+});
+
+test('editing a table cell changes the content fingerprint', () => {
+  const table = text => [{ id: 'table-1', type: 'table', table: {
+    table_width: 1, has_column_header: true, has_row_header: false,
+    children: [tableRow([text])],
+  } }];
+  assert.notEqual(computeContentHash(table('旧值')), computeContentHash(table('新值')));
+});
+
 const page = { id: 'page-1', created_time: '2026-10-13T10:00:00Z', properties: {
   '名称': { title: [{ plain_text: '用 AI ' }, { plain_text: '做项目的一些思考' }] },
   '状态': { status: { name: '完成' } },

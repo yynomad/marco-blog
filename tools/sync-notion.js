@@ -107,17 +107,28 @@ async function notionGet(path, params = {}) {
   return response.json();
 }
 
-/** 获取页面下的所有块 */
-async function getPageBlocks(pageId) {
+/** 获取某个块下的所有子块（分页） */
+async function getBlockChildren(blockId) {
   let allBlocks = [];
   let cursor;
   do {
     const params = {};
     if (cursor) params.start_cursor = cursor;
-    const data = await notionGet(`/blocks/${pageId}/children`, params);
+    const data = await notionGet(`/blocks/${blockId}/children`, params);
     allBlocks = allBlocks.concat(data.results);
     cursor = data.next_cursor;
   } while (cursor);
+  return allBlocks;
+}
+
+/** 获取页面下的所有块；表格行不会内联返回，需要单独展开 */
+async function getPageBlocks(pageId) {
+  const allBlocks = await getBlockChildren(pageId);
+  for (const block of allBlocks) {
+    if (block.type === 'table' && !Array.isArray(block.table.children)) {
+      block.table.children = await getBlockChildren(block.id);
+    }
+  }
   return allBlocks;
 }
 
@@ -217,6 +228,32 @@ function recordFingerprint(content, pageId, hash) {
 // Notion Block → Markdown 转换
 // ============================================================
 
+/** 表格单元格内的富文本转为一行纯文本，并转义 Markdown 表格语法 */
+function tableCellText(richText = []) {
+  return richText.map(t => t.plain_text).join('')
+    .replace(/\|/g, '\\|')
+    .replace(/\r?\n/g, '<br>')
+    .trim();
+}
+
+/** Notion table block → GitHub Flavored Markdown 表格 */
+function tableToMarkdown(table) {
+  const rows = (table.children || [])
+    .filter(block => block.type === 'table_row')
+    .map(block => (block.table_row.cells || []).map(tableCellText));
+  if (rows.length === 0) return '';
+  const width = Math.max(table.table_width || 0, ...rows.map(row => row.length));
+  const normalized = rows.map(row => [...row, ...Array(Math.max(0, width - row.length)).fill('')]);
+  // GFM 必须有一行表头；Notion 没开表头时用空表头占位，避免丢数据。
+  const header = table.has_column_header ? normalized[0] : Array(width).fill('');
+  const body = table.has_column_header ? normalized.slice(1) : normalized;
+  return [
+    `| ${header.join(' | ')} |`,
+    `| ${header.map(() => '---').join(' | ')} |`,
+    ...body.map(row => `| ${row.join(' | ')} |`),
+  ].join('\n');
+}
+
 async function blocksToMarkdown(blocks, imageMap) {
   let md = '';
 
@@ -240,6 +277,11 @@ async function blocksToMarkdown(blocks, imageMap) {
       case 'heading_3': {
         const text = block.heading_3.rich_text.map(t => t.plain_text).join('');
         md += `### ${text}\n\n`;
+        break;
+      }
+      case 'heading_4': {
+        const text = block.heading_4.rich_text.map(t => t.plain_text).join('');
+        md += `#### ${text}\n\n`;
         break;
       }
       case 'bulleted_list_item': {
@@ -288,6 +330,15 @@ async function blocksToMarkdown(blocks, imageMap) {
         const text = block.to_do.rich_text.map(t => t.plain_text).join('');
         const checked = block.to_do.checked ? 'x' : ' ';
         md += `- [${checked}] ${text}\n`;
+        break;
+      }
+      case 'table': {
+        const table = tableToMarkdown(block.table);
+        if (table) md += `${table}\n\n`;
+        break;
+      }
+      case 'table_row': {
+        // 表格行由父级 table 统一渲染，单独出现时跳过
         break;
       }
       case 'table_of_contents': {
