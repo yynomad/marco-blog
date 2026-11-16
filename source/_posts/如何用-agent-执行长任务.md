@@ -1,9 +1,9 @@
 ---
-title: 如何用 Agent 执行长任务
-permalink: codex-long-running-tasks
+title: "如何用 Agent 执行长任务"
+permalink: "codex-long-running-tasks"
 date: 2026-10-14
 notion_id: 3f9f66ff-04f8-8106-b6ae-d0e3fc91afee
-notion_hash: 74d4e8f30cb12ce48838c4faff39eb8d
+notion_hash: 96662402cdf57b6ec13f4ac27029995c
 tags:
 categories:
 ---
@@ -26,6 +26,13 @@ Plan.md            # 里程碑规划
 Implement.md       # 执行手册
 Documentation.md   # 状态日志
 ```
+
+| 文件 | 作用 | 关键内容 |
+| --- | --- | --- |
+| Prompt.md | 冻结目标 | 目标、非目标、约束、交付物、Done when |
+| Plan.md | 里程碑规划 | 可验收的里程碑、验证命令、stop-and-fix 规则 |
+| Implement.md | 执行手册 | 主循环、验证命令、代码规则、停止条件 |
+| Documentation.md | 状态日志 | 当前状态、决策记录、运行方式、已知问题 |
 
 Prompt.md 的作用是防止 Agent“造出很厉害但错误的东西”。它必须写清楚：做什么、不做什么、硬约束、交付物、以及“Done when”。
 
@@ -370,6 +377,14 @@ Skill 就是自然语言写的 SOP。每个人写的不一样：语言不同，�
 但这不意味着结果是混乱的。好的 Skill 不追求路径一致，而追求终点合格。它用验证命令、验收标准、里程碑检查点，保证每次输出都落在可接受的范围内。
 
 Skill 有相对好坏，但没有绝对第一。好坏必须绑定到具体优化目标才有客观意义：
+
+| 优化目标 | 更优的 Skill 设计 |
+| --- | --- |
+| 长任务不漂移 | 带里程碑验收 + 持续状态日志 |
+| 省 Token | 渐进式披露，按需加载 |
+| 跨模型可移植 | 不依赖特定模型特性 |
+| 减少返工 | 强制 TDD 契约 + 垂直切片 |
+| 快速原型 | 轻量元提示词，少文档 |
 
 所以，Skill 的质量不该用“写得好不好”来评价，而该用“在多次执行下的成功率分布”来评价。你可以对同一个 Skill 跑 10 次，看里程碑通过率、漂移次数、返工次数，用数据判断它好不好。
 

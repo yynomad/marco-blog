@@ -1,8 +1,8 @@
 ---
-title: raft协议理解
+title: "raft协议理解"
 date: 2025-09-22
 notion_id: 276f66ff-04f8-805d-89da-f1826a1930aa
-notion_hash: 42db7d3f52a405fcfa8d557624b2028c
+notion_hash: 9a1ec2e6a24e7ff03b88ccdcd2234558
 tags:
 categories:
 ---
@@ -42,6 +42,11 @@ Raft 将时间划分为一系列连续的 任期（Term），每个任期内最�
 节点之间通过 RPC（Remote Procedure Call） 通信。
 
 主要有两种 RPC 类型：
+
+| RPC 类型 | 作用 |
+| --- | --- |
+| RequestVote RPC | 选举阶段请求投票 |
+| AppendEntries RPC | 日志复制和心跳保持 |
 
 ---
 

@@ -1,8 +1,8 @@
 ---
-title: markdown-image+cloudflare R2 管理博客图片
+title: "markdown-image+cloudflare R2 管理博客图片"
 date: 2026-05-22
 notion_id: 368f66ff-04f8-80e0-abe4-c74d446e126d
-notion_hash: 9ba6f7ac41a54c8a6289e6a472dcac74
+notion_hash: 92f48448e1e368809cb7a0854b3c2683
 tags:
 categories:
 ---
@@ -103,6 +103,13 @@ Markdown Image 插件自动上传到 R2
 就是这么简单。
 
 ## 方案对比
+
+| 方案 | 缺点 |
+| --- | --- |
+| GitHub 图床 | 国内访问不稳定，GitHub 有滥用限制 |
+| PicGo 桌面版 | 需要额外开一个应用 |
+| 七牛/又拍云 | 需要备案域名 |
+| SMMS | 免费版有限制，不稳定 |
 
 Cloudflare R2 有 10GB 免费存储 + 每月 100 万次读取，对于个人博客完全够用，而且不需要备案。
 

@@ -3,7 +3,7 @@ title: "从 Go 后端到 Agent：我的 LangChain 与 LangGraph 六课笔记"
 permalink: "langgraph-lessons"
 date: 2026-11-05
 notion_id: 40ff66ff-04f8-8146-9a85-ebd2f323eb67
-notion_hash: 54bccd54ac26d53c981f310449004886
+notion_hash: 043988af947b314a3528747dc236f786
 tags:
 categories:
 ---
@@ -62,6 +62,12 @@ result = tool_func(**tool_args)
 ## Lesson 2：用 State 接力搜索、分析和回答
 
 研究助手保留了 START → agent、tools → agent 和 agent 出口上的条件边。我原先以为搜索、分析和回答各有一个节点。读完代码才发现，同一个 agent_node 每轮读到的 State 不同，所以会选不同的提示词。
+
+| 轮次 | State 中已有的数据 | 提示词引导模型做什么 |
+| --- | --- | --- |
+| 第一轮 | 用户的问题 | 请求 search_knowledge_base |
+| 第二轮 | 问题和 search_results | 根据搜索结果请求 extract_key_points |
+| 第三轮 | 问题和 analysis | 生成答案，写入 final_answer |
 
 我卡得最久的是 topic 从哪里来。对于「What is LangGraph and how does it relate to agents?」，第一次请求已经带上了整句问题、工具说明和可选主题 python、langgraph、agents。模型可能在同一次调用里选好工具名和 {"topic": "langgraph"}。它也可以选 agents，实际选了什么可以看终端里的 DEBUG: tool_calls value。
 

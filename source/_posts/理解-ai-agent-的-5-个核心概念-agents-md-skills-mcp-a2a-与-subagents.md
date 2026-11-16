@@ -3,7 +3,7 @@ title: "理解 AI Agent 的 5 个核心概念：AGENTS.md、Skills、MCP、A2A �
 permalink: "AI-Agent-5-terms"
 date: 2026-11-05
 notion_id: 40ff66ff-04f8-8196-b57e-cdeda4edb7a4
-notion_hash: d84734581d208c36eb3bb8c217125a95
+notion_hash: 71761d2e78b5ef12375635b5ba9728f1
 tags:
 categories:
 ---
@@ -15,6 +15,14 @@ categories:
  AGENTS.md、Agent Skills、MCP、A2A 和 Subagents 虽然经常被放在一起讨论，但其实分别解决不同层面的问题。理解它们的边界，比单纯记住几个缩写更重要。
 
 ## 一、先用一张表理解这 5 个概念
+
+| 概念 | 解决的问题 | 一句话理解 |
+| --- | --- | --- |
+| AGENTS.md | Agent 在这个项目里应该遵守什么规则？ | 写给 Agent 的项目工作说明 |
+| Agent Skills | 某一类任务应该如何完成？ | 按需加载的专业操作手册 |
+| MCP（Model Context Protocol） | Agent 如何统一接入外部工具与数据？ | Agent 与工具、数据源之间的标准接口 |
+| A2A（Agent-to-Agent） | 不同 Agent 如何沟通、委派任务？ | Agent 与 Agent 之间的通信协议 |
+| Subagents | 复杂任务如何拆分、隔离上下文或并行执行？ | 主 Agent 派生子 Agent 的执行模式 |
 
 前两个概念偏向 Agent 内部的行为与能力，MCP 和 A2A 解决 外部连接与协作，Subagents 则是一种 任务规模化的组织方式。
 
@@ -155,6 +163,14 @@ Subagents 与 A2A 也不是同一件事。 A2A 是 Agent 之间的通信标准�
 下面是基于这五个概念的一个实践理解，并非视频中的原始案例。
 
 假设我们在开发一个“代码审查 Agent”：
+
+| 需求 | 更适合考虑的机制 |
+| --- | --- |
+| 告诉 Agent 仓库的测试命令和提交规范 | AGENTS.md |
+| 让 Agent 按固定流程进行安全审查 | Agent Skill |
+| 查询 GitHub、CI 或代码质量平台 | MCP |
+| 将安全评审委托给独立的安全 Agent 服务 | A2A |
+| 将多个模块分给子 Agent 并行检查 | Subagents |
 
 它们并不是五选一的替代关系，而是可以组合起来的不同层次。
 
