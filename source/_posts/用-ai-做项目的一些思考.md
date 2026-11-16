@@ -2,6 +2,7 @@
 title: 用 AI 做项目的一些思考
 permalink: ai-coding-delivery-workflow
 date: 2026-10-13
+notion_id: 3f8f66ff-04f8-81bf-8150-eb6b1450826b
 notion_hash: e57d55815c11e87cf59e9d2c8569c621
 tags:
 categories:

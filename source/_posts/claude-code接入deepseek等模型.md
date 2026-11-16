@@ -1,6 +1,7 @@
 ---
 title: claude code接入deepseek等模型
 date: 2025-11-16
+notion_id: 2adf66ff-04f8-80c9-af6a-f2ec25877655
 notion_hash: 2177d7cbc3030609389bb742ca0904ad
 tags:
 categories:
