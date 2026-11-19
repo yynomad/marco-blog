@@ -1,9 +1,9 @@
 ---
-title: "Oracle 免费服务器搭建双节点：从 SSH、REALITY 到 FlClash 订阅"
+title: "Oracle 免费服务器搭建双节点"
 permalink: "oracle-free-xray-reality-guide"
 date: 2026-10-30
 notion_id: 409f66ff-04f8-8170-8893-ca73e2789bdb
-notion_hash: 86c1a10d1cdb005a70deb079f73a07a3
+notion_hash: 8b47588f7fe8cd15c92b607ede2e006a
 tags:
 categories:
 ---
@@ -14,13 +14,36 @@ categories:
 
 这篇按第一次接触服务器的顺序写：先跑通一台，再复制到第二台，最后按需加订阅。每组命令都注明在哪执行，并给出成功标准。方案是 Xray + VLESS/REALITY + Vision，客户端使用 FlClash。
 
-核对日期：2026-10-31。服务端实测 Xray v26.10.29，隔离连接验证使用 mihomo v1.19.33。这是本文验证过的组合，不代表任意新版都兼容。203.0.113 开头的地址、sub.example.com、YOUR 开头的字段都是示例，不能直接连接。本文不公开真实节点地址、账号、私钥、UUID 或订阅链接。
+核对日期：2026-10-31（2026-11-19 补充第九节 Cloudflare CDN 20 节点扩展方案）。服务端实测 Xray v26.10.29，隔离连接验证使用 mihomo v1.19.33 与 Xray 端到端链路测试。这是本文验证过的组合，不代表任意新版都兼容。203.0.113 开头的地址、sub.example.com、jp1.example.com、jp2.example.com、YOUR 开头的字段都是示例，不能直接连接。本文不公开真实节点地址、账号、私钥、UUID 或订阅链接。
 
 ![双节点搭建流程示意，非控制台截图](https://img.heyyao.com/2026/11/fd4e4be712b31fe63b56c8207fdf2002.png)
 
 ## 一、先明白我们要搭什么
 
 服务器是你自己的远程电脑；Xray 是上面的代理程序；FlClash 是你设备上的连接工具。订阅只是一个能下载节点配置的 HTTPS 地址，不是新的服务器，也不会让网络加速。
+
+### 最简单的原理和数据流
+
+可以把它想成：FlClash 在你的设备上负责“选路”，Oracle 云服务器负责“远端中转”，Xray 负责接收代理连接并替你访问目标网站。更准确地说，这是代理节点方案；哪些流量经过它，由 FlClash 的连接方式和分流规则决定。
+
+主要组件：
+
+- Oracle Cloud 云服务器：远端 Linux 机器，提供主用和备用节点。
+- Xray：装在服务器上的代理服务，接收客户端连接，再连接目标网站。
+- VLESS：客户端和 Xray 之间承载代理流量的协议。
+- REALITY：为这条连接提供加密握手与身份校验。配置中的 dl.google.com 是握手使用的目标名称；访问网站的流量不会先绕到 Google。
+- Vision：这套 VLESS 连接使用的流量模式。
+- FlClash：你设备上的客户端，按规则决定哪些请求直连、哪些走节点；主节点不可用时可切到备用节点。
+- Caddy 和 HTTPS 订阅地址：只负责安全地把节点配置文件交给 FlClash，不负责转发日常网页流量。
+两种请求要分开看：
+
+1. 获取或更新配置：FlClash → HTTPS 订阅地址 → Caddy → 返回节点配置 YAML。这个过程让客户端知道节点参数。
+1. 访问网站：应用 → FlClash 按规则选路 →（需要代理时）加密连接到 Oracle 服务器 → Xray → 目标网站。网站的回复再沿原路返回。
+用箭头概括：
+
+应用 → FlClash → 加密代理连接 → Oracle 云服务器上的 Xray → 目标网站
+
+符合直连规则的流量会从你的设备直接访问网站，不经过 Oracle 服务器。
 
 REALITY 节点本身不要求购买域名或申请自己的证书；可选的 HTTPS 订阅托管才需要域名和证书。先把节点跑通，再做订阅。
 
@@ -534,7 +557,110 @@ curl -I 'https://sub.example.com:8443/sub/wrong-token/clash.yaml'
 
 更新节点时，先改并验证本地 YAML，再上传覆盖 /srv/oracle-subscription/clash.yaml，最后在客户端更新。不重新生成路径。24 小时响应头是更新提示，是否自动更新取决于客户端设置；本文没有创建服务器定时任务。
 
-## 九、日常维护与暂停
+## 九、进阶扩展：用 Cloudflare CDN 裂变为 20 个日本节点
+
+如果只有两台 Oracle AMD 机器，直连 REALITY 在晚高峰或路由波动时可能出现高延迟；而单纯用 Workers 类方案（如 edgetunnel）虽然节点多，但出口 IP 归属地由 Cloudflare 动态分配，往往不是日本。
+
+在不新增 VPS 的前提下，只要你有一个托管在 Cloudflare 的域名，就可以把现有的两台日本 AMD 机器同时作为固定日本出口，前面套上 Cloudflare CDN（橙色小云朵）并搭配日本机房（NRT 东京 / KIX 大阪）优选 IP，扩展为 2 个 REALITY 直连 + 18 个 CF 日本优选入口中转 = 20 个日本节点，且最终出口 IP 100% 仍是这两台日本服务器。
+
+### 9.1 Cloudflare 前置准备
+
+1. 添加两条代理 A 记录：在 Cloudflare DNS 为两台机器分别添加二级域名并开启已代理（橙色小云朵）：
+1. 核对 SSL/TLS 模式：进入 SSL/TLS → 概述，确保加密模式为 完全（Full） 或 完全（严格），不要使用 Flexible。
+1. 生成 Origin Server 证书：进入 SSL/TLS → 源服务器 → 创建证书，保持默认 15 年有效期（覆盖 *.example.com 与 example.com），将生成的证书与私钥保存为服务端文件 cf-origin.crt 与 cf-origin.key（权限 root:xray、0640）。私钥只展示一次，不要公开。
+### 9.2 服务端复用 443 端口（无需在 Oracle 控制台新开端口）
+
+为了不改动 Oracle 云端安全列表、同时保留原有 REALITY 直连，按两台机器 443 端口的占用情况分别处理：
+
+#### 场景 A：443 端口仅用于 REALITY（如主用机）——用 Nginx stream 做 SNI 分流
+
+安装 nginx 与 libnginx-mod-stream（禁用默认 80 站点），在 0.0.0.0:443 开启 ssl_preread 四层透传分流：
+
+- 将原有 Xray REALITY 入站改为监听 127.0.0.1:14443；
+- 在 Xray 新增一个 VLESS + WS + TLS 入站监听 127.0.0.1:2053，路径设为 /vless-ws，加载 cf-origin.crt 与 cf-origin.key（使用独立新 UUID）；
+- /etc/nginx/nginx.conf 的 stream 块按 SNI 分流：
+```javascript
+stream {
+    map $ssl_preread_server_name $xray_backend {
+        jp1.example.com xray_ws;
+        default         xray_reality;
+    }
+    upstream xray_ws {
+        server 127.0.0.1:2053;
+    }
+    upstream xray_reality {
+        server 127.0.0.1:14443;
+    }
+    server {
+        listen 443 reuseport;
+        proxy_pass $xray_backend;
+        ssl_preread on;
+    }
+}
+```
+
+校验 nginx -t 与 xray run -test 通过后重启两者。外部请求 dl.google.com 时会被原封不动透传到 REALITY；Cloudflare 回源请求 jp1.example.com 时会进入 Xray WS。
+
+#### 场景 B：443 端口已被 Caddy 占用（如备用机）——由 Caddy 反代到内网 Xray
+
+如果 443 端口已有 Caddy（或 Docker 版 Caddy）托管网站或订阅，只需：
+
+1. 在 Xray 新增 VLESS + WS 入站（security 设为 none，路径 /vless-ws，使用独立新 UUID），仅监听本机回环或 Docker 网桥网关（例如 127.0.0.1:2053 或 172.30.0.1:2053），切勿将该明文 WS 端口暴露到 0.0.0.0 公网；若用 Docker 网桥，在 iptables 仅对网桥网段放行 2053。
+1. 在 Caddy 配置中新增虚拟主机（注意将 reverse_proxy 放进 handle /vless-ws 块中，避免被兜底 handle 的 404 覆盖）：
+```javascript
+jp2.example.com {
+    tls /path/to/cf-origin.crt /path/to/cf-origin.key
+    handle /vless-ws {
+        reverse_proxy 172.30.0.1:2053
+    }
+    handle {
+        respond 404
+    }
+}
+```
+
+### 9.3 验证回源连通性
+
+从本地或另一台机器通过任意 Cloudflare IP 访问两台机器的 /vless-ws 路径（不带 WebSocket 升级头）：
+
+```bash
+curl -sS -o /dev/null -w "HTTP %{http_code}\n" --resolve jp1.example.com:443:104.27.10.1 https://jp1.example.com/vless-ws
+curl -sS -o /dev/null -w "HTTP %{http_code}\n" --resolve jp2.example.com:443:104.27.10.1 https://jp2.example.com/vless-ws
+```
+
+返回 HTTP 400（Xray WebSocket 拒绝普通 HTTP 请求的标准响应）即说明 Cloudflare 边缘 → 源站 443 → Xray WS 已完整打通；访问根路径 / 应返回 404 或连接关闭。切勿把 522（源站超时）或 502（反代失败）当成成功。
+
+### 9.4 筛选日本 Cloudflare 优选 IP 并生成 20 节点 FlClash 配置
+
+用 curl 访问 https://www.cloudflare.com/cdn-cgi/trace（配合 --resolve www.cloudflare.com:443:<候选IP>）或 CloudflareSpeedTest -cfcolo NRT,KIX，挑选出实际落到日本机房（colo=NRT 或 colo=KIX）且延迟最低的 9 个不同 Cloudflare IP。
+
+在 FlClash YAML 中：
+
+- 保留原有的 2 个 REALITY 直连节点（作为高速主力）；
+- 把上述 9 个日本优选 IP 分别对接 jp1.example.com 和 jp2.example.com（9 × 2 = 18 个 VLESS + WS + TLS 节点），合计 20 个日本节点。
+单条 CF 优选节点模板如下（每个节点只需替换 name、server 为不同的日本优选 IP，并对应填好 uuid、servername 与 Host）：
+
+```yaml
+- name: 大阪主用-CF优选1
+  type: vless
+  server: 104.27.10.1
+  port: 443
+  uuid: YOUR_JP1_WS_UUID
+  network: ws
+  udp: true
+  tls: true
+  servername: jp1.example.com
+  client-fingerprint: chrome
+  skip-cert-verify: false
+  ws-opts:
+    path: /vless-ws
+    headers:
+      Host: jp1.example.com
+```
+
+在 proxy-groups 中同时配置 url-test（自动最低延迟，tolerance: 30）与 fallback（自动主备），把全部 20 个节点放入其中，即可在直连波动时自动切换到延迟最低的 Cloudflare 日本优选链路，同时出口 IP 始终保持为两台大阪 AMD 机器的日本公网 IP。
+
+## 十、日常维护与暂停
 
 私钥和配置放在自己的加密备份里。暂停代理：
 
