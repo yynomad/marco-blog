@@ -3,7 +3,7 @@ title: "Oracle 免费服务器搭建双节点"
 permalink: "oracle-free-xray-reality-guide"
 date: 2026-10-30
 notion_id: 409f66ff-04f8-8170-8893-ca73e2789bdb
-notion_hash: 8b47588f7fe8cd15c92b607ede2e006a
+notion_hash: 2ce41e87cc7b8fec5bd2f9fe0232f9ab
 tags:
 categories:
 ---
@@ -13,10 +13,6 @@ categories:
 最近用 Oracle Cloud 的两台免费 AMD 服务器搭了两个个人节点。最花时间的不是安装，而是分清“云端放行”“主机放行”和“客户端握手”，以及最后把节点做成订阅。
 
 这篇按第一次接触服务器的顺序写：先跑通一台，再复制到第二台，最后按需加订阅。每组命令都注明在哪执行，并给出成功标准。方案是 Xray + VLESS/REALITY + Vision，客户端使用 FlClash。
-
-核对日期：2026-10-31（2026-11-19 补充第九节 Cloudflare CDN 20 节点扩展方案）。服务端实测 Xray v26.10.29，隔离连接验证使用 mihomo v1.19.33 与 Xray 端到端链路测试。这是本文验证过的组合，不代表任意新版都兼容。203.0.113 开头的地址、sub.example.com、jp1.example.com、jp2.example.com、YOUR 开头的字段都是示例，不能直接连接。本文不公开真实节点地址、账号、私钥、UUID 或订阅链接。
-
-![双节点搭建流程示意，非控制台截图](https://img.heyyao.com/2026/11/fd4e4be712b31fe63b56c8207fdf2002.png)
 
 ## 一、先明白我们要搭什么
 
@@ -46,8 +42,6 @@ categories:
 符合直连规则的流量会从你的设备直接访问网站，不经过 Oracle 服务器。
 
 REALITY 节点本身不要求购买域名或申请自己的证书；可选的 HTTPS 订阅托管才需要域名和证书。先把节点跑通，再做订阅。
-
-准备：已开通的 Oracle 账号、可运行 FlClash 的电脑、免费实例额度。只有一台也能先开始，第二台用于备用。两台都在同一区域，仍可能受同一条线路或区域故障影响。
 
 ## 二、创建实例前，先核对免费额度
 
@@ -148,7 +142,7 @@ sudo iptables -C INPUT -p tcp --dport 443 -m comment --comment oracle-guide -j A
 sudo ss -lntp | grep ':443' || true
 ```
 
-全新机器通常没有输出。有 Nginx / Caddy / 其他程序监听时先停下来核对，不要随手停网站。可以改用 24443，但云端规则、主机规则、下一段 Python 的 port、客户端 port 四处都要改。本文默认用 443。
+全新机器通常没有输出。有 Nginx / Caddy / 其他程序监听时先停下来核对，不要随手停网站。我是因为部署了其他服务，改用 24443，但云端规则、主机规则、下一段 Python 的 port、客户端 port 四处都要改。本文默认用 443。
 
 ### 5.2 安装固定验证版本
 
@@ -304,98 +298,22 @@ sudo cat /root/oracle-reality-client.json
 
 把两台参数分别标记“主用”和“备用”。第二台应生成另一套参数，不复制第一台的客户端记录当作备用参数。
 
-## 七、FlClash 导入双节点（自己的电脑操作）
+## 七、FlClash 导入节点：使用订阅 URL（不再手动建本地 YAML）
 
 官方 Releases 按系统选择安装包，不从名称相近的网站或不明镜像下载安装器：
 
 https://github.com/chen08209/FlClash/releases
 
-新建纯文本文件 Oracle-FlClash.yaml。Mac 文本编辑器先切到纯文本；Windows 记事本保存类型选“所有文件”，避免存成 .yaml.txt。整份复制：
+不建议在本地电脑手动新建 Oracle-FlClash.yaml 再从“文件”导入——本地文件导入没有绑定订阅地址，客户端不会显示“更新”按钮，手机等其他设备也无法同步。
 
-```yaml
-mixed-port: 7890
-allow-lan: false
-mode: rule
-log-level: warning
-ipv6: false
-dns:
-  enable: true
-  enhanced-mode: fake-ip
-  nameserver:
-  - https://dns.alidns.com/dns-query
-  default-nameserver:
-  - 223.5.5.5
-  - 119.29.29.29
-proxies:
-- name: Oracle 主用
-  type: vless
-  server: 203.0.113.10
-  port: 443
-  uuid: YOUR_MAIN_UUID
-  network: tcp
-  udp: true
-  tls: true
-  flow: xtls-rprx-vision
-  servername: dl.google.com
-  client-fingerprint: chrome
-  skip-cert-verify: false
-  reality-opts:
-    public-key: YOUR_MAIN_PUBLIC_KEY
-    short-id: YOUR_MAIN_SHORT_ID
-    support-x25519mlkem768: true
-- name: Oracle 备用
-  type: vless
-  server: 203.0.113.20
-  port: 443
-  uuid: YOUR_BACKUP_UUID
-  network: tcp
-  udp: true
-  tls: true
-  flow: xtls-rprx-vision
-  servername: dl.google.com
-  client-fingerprint: chrome
-  skip-cert-verify: false
-  reality-opts:
-    public-key: YOUR_BACKUP_PUBLIC_KEY
-    short-id: YOUR_BACKUP_SHORT_ID
-    support-x25519mlkem768: true
-proxy-groups:
-- name: Oracle 双节点
-  type: select
-  proxies:
-  - 自动主备
-  - Oracle 主用
-  - Oracle 备用
-- name: 自动主备
-  type: fallback
-  proxies:
-  - Oracle 主用
-  - Oracle 备用
-  url: https://www.gstatic.com/generate_204
-  interval: 180
-  lazy: true
-rules:
-- IP-CIDR,127.0.0.0/8,DIRECT,no-resolve
-- IP-CIDR,10.0.0.0/8,DIRECT,no-resolve
-- IP-CIDR,172.16.0.0/12,DIRECT,no-resolve
-- IP-CIDR,192.168.0.0/16,DIRECT,no-resolve
-- DOMAIN-SUFFIX,cn,DIRECT
-- MATCH,Oracle 双节点
-```
+推荐直接按第八节在服务端导出 HTTPS 订阅 URL（格式如 https://sub.example.com/sub/YOUR_RANDOM_TOKEN/clash.yaml），再导入 FlClash：
 
-替换八个值：主用和备用各自的 server（真实公网 IPv4）、uuid、public-key、short-id。YOUR_* 必须全部替换。servername 与对应服务端一致；改过端口的节点，还要修改 port。
+1. 打开 FlClash，进入 配置 → 添加 / ＋ → 链接 / URL，粘贴你的订阅链接并保存选中。
+1. 在代理页先单独测试主用、备用节点是否都能连通，再切回 自动最低延迟 或 自动主备。
+1. 后续服务端节点有调整（例如按第九节扩展到 20 节点），只需更新服务端的 clash.yaml，在手机或电脑客户端点一下更新即可同步。
+## 八、做成自己的 HTTPS 订阅（导出订阅 URL）
 
-FlClash 进入 配置 → 添加 / ＋ → 文件，选择 YAML，保存并选中。按钮文字可能随版本变化，核心顺序是“添加配置 → 导入文件 → 选中配置”。
-
-代理页先将 Oracle 双节点切为 Oracle 主用，单独测通；再选 Oracle 备用测通。两台都正常后再选自动主备。fallback 优先第一个可用节点，不是永远选延迟最低的节点；180 秒检查也不能让正在下载的连接无缝搬家。
-
-示例为减少第一次导入的资源依赖，没有使用 GeoIP 数据下载。它只让私网和 .cn 域名直连，其他流量经节点，不是“所有国内网站都自动直连”。连接跑通后，再逐步增加分流规则。
-
-## 八、可选：做成自己的 HTTPS 订阅
-
-本地文件已经能用，不买域名也可以停在这里。订阅只是让客户端从同一地址重新下载配置，不会自动知道服务器改了什么，也不会加速。
-
-下面是给没有网站 / Caddy 的新 Ubuntu 服务器准备的独立托管示例。不要把个人代理配置混入现有产品仓库或覆盖已有网站。已有服务时先单独确定托管位置，不照抄此节。
+订阅只是让客户端从同一地址安全下载最新的节点配置，不会替你加速。下面是在服务端生成订阅文件并导出 HTTPS 订阅 URL 的步骤（以没有网站 / Caddy 的新 Ubuntu 服务器为例；已有 Caddy 时直接新增虚拟主机即可，不要覆盖现有网站）。
 
 为避免与 REALITY 的 TCP 443 冲突，订阅监听 HTTPS 8443；TCP 80 用于证书申请和续期。这部分是独立配置示例，域名解析与证书签发需要你在自己的环境验证，不是所有网站环境的通用迁移命令。
 
@@ -434,22 +352,85 @@ INSTALL_CADDY
 
 官方说明：https://caddyserver.com/docs/install#debian-ubuntu-raspbian
 
-### 8.3 上传客户端 YAML
+### 8.3 在服务端写入订阅 YAML（/srv/oracle-subscription/clash.yaml）
 
-在自己的电脑切到保存 YAML 的目录，确认所有 YOUR_* 已替换后执行：
+直接在订阅服务器上写入 /srv/oracle-subscription/clash.yaml（权限设为 root:caddy、640），把两台机器各自的真实公网 IPv4、uuid、public-key、short-id 和端口填入即可（YOUR_* 与 203.0.113.* 必须全部替换）；如果按第九节扩展了 Cloudflare 日本优选节点，也直接追加到 proxies 和策略组中：
 
-```bash
-scp -i ~/Downloads/ssh-key.key Oracle-FlClash.yaml ubuntu@203.0.113.10:~/Oracle-FlClash.yaml
+```yaml
+mixed-port: 7890
+allow-lan: false
+mode: rule
+log-level: warning
+ipv6: false
+geodata-mode: true
+dns:
+  enable: true
+  enhanced-mode: fake-ip
+  fake-ip-range: 198.18.0.1/16
+  default-nameserver:
+  - 223.5.5.5
+  - 119.29.29.29
+  nameserver:
+  - https://dns.alidns.com/dns-query
+proxies:
+- name: Oracle 主用 (直连)
+  type: vless
+  server: 203.0.113.10
+  port: 443
+  uuid: YOUR_MAIN_UUID
+  network: tcp
+  udp: true
+  tls: true
+  flow: xtls-rprx-vision
+  servername: dl.google.com
+  client-fingerprint: chrome
+  skip-cert-verify: false
+  reality-opts:
+    public-key: YOUR_MAIN_PUBLIC_KEY
+    short-id: YOUR_MAIN_SHORT_ID
+    support-x25519mlkem768: true
+- name: Oracle 备用 (直连)
+  type: vless
+  server: 203.0.113.20
+  port: 443
+  uuid: YOUR_BACKUP_UUID
+  network: tcp
+  udp: true
+  tls: true
+  flow: xtls-rprx-vision
+  servername: dl.google.com
+  client-fingerprint: chrome
+  skip-cert-verify: false
+  reality-opts:
+    public-key: YOUR_BACKUP_PUBLIC_KEY
+    short-id: YOUR_BACKUP_SHORT_ID
+    support-x25519mlkem768: true
+proxy-groups:
+- name: Oracle 双节点
+  type: select
+  proxies:
+  - 自动主备
+  - Oracle 主用 (直连)
+  - Oracle 备用 (直连)
+- name: 自动主备
+  type: fallback
+  proxies:
+  - Oracle 主用 (直连)
+  - Oracle 备用 (直连)
+  url: https://www.gstatic.com/generate_204
+  interval: 180
+  lazy: true
+rules:
+- IP-CIDR,127.0.0.0/8,DIRECT,no-resolve
+- IP-CIDR,10.0.0.0/8,DIRECT,no-resolve
+- IP-CIDR,172.16.0.0/12,DIRECT,no-resolve
+- IP-CIDR,192.168.0.0/16,DIRECT,no-resolve
+- DOMAIN-SUFFIX,cn,DIRECT
+- GEOIP,CN,DIRECT
+- MATCH,Oracle 双节点
 ```
 
-回到服务器执行：
-
-```bash
-sudo install -o root -g caddy -m 640 ~/Oracle-FlClash.yaml /srv/oracle-subscription/clash.yaml
-rm ~/Oracle-FlClash.yaml
-```
-
-只上传客户端 YAML，不上传 SSH 私钥或服务端 config.json。YAML 包含可用节点的凭据，不能提交到公开仓库。
+文件包含可用节点的凭据，只保存在服务器受限目录（640），不要提交到任何 Git 仓库。
 
 ### 8.4 生成独立 Caddyfile
 
@@ -551,9 +532,9 @@ curl -I 'https://sub.example.com:8443/sub/wrong-token/clash.yaml'
 
 正确地址应为 HTTPS 200，Content-Type 是 application/yaml，Cache-Control 含 private / no-store；错误地址是 404。证书错误先查 DNS、80 端口和 Caddy 日志，不绕过验证。
 
-核对下载内容，再到 FlClash 配置 → 添加 → 链接 / URL，粘贴完整地址，保存选中。重新单独测试主用、备用，确认没有用到旧配置。
+核对下载内容，再到 FlClash 配置 → 添加 → 链接 / URL，粘贴完整地址，保存选中。注意：如果最初是以“本地文件”导入 YAML（配置里没有绑定 URL），FlClash 不会显示“更新”按钮；必须通过 URL 导入，后续才能一键更新与自动同步。重新单独测试主用、备用，确认没有用到旧配置。
 
-完整链接相当于钥匙，不要公开截图、二维码、贴到博客或第三方订阅转换网站。随机路径减少被猜中的机会，泄露后要换路径；如果别人已经下载了 YAML，还要轮换节点凭据。
+完整链接相当于钥匙，不要公开截图、二维码、贴到博客或任何第三方在线“订阅转换”网站。如果链接不慎泄露，只换订阅路径是不够的（对方可能已下载 YAML，拿到了服务器真实 IP、UUID 与公钥），正确止损顺序是：先在服务端更换 Xray 的 UUID（及 short-id / WS 路径）并重启 Xray 使旧节点全部失效，再更换 Caddyfile 中的订阅随机路径并更新服务端 YAML。
 
 更新节点时，先改并验证本地 YAML，再上传覆盖 /srv/oracle-subscription/clash.yaml，最后在客户端更新。不重新生成路径。24 小时响应头是更新提示，是否自动更新取决于客户端设置；本文没有创建服务器定时任务。
 
@@ -609,7 +590,6 @@ stream {
 1. 在 Caddy 配置中新增虚拟主机（注意将 reverse_proxy 放进 handle /vless-ws 块中，避免被兜底 handle 的 404 覆盖）：
 ```javascript
 jp2.example.com {
-    tls /path/to/cf-origin.crt /path/to/cf-origin.key
     handle /vless-ws {
         reverse_proxy 172.30.0.1:2053
     }
@@ -618,6 +598,8 @@ jp2.example.com {
     }
 }
 ```
+
+> 重要避坑（证书冲突）：如果这台 Caddy 上同时托管了未开启 Cloudflare 橙云的直连域名（例如 sub.example.com 或其他网站），切勿在 Caddy 里手动加载通配符 *.example.com 的 Cloudflare Origin 证书。Caddy 一旦加载了通配符证书，会跳过同根域下其他子域名的 Let's Encrypt 自动签发，导致直连 sub.example.com 时客户端报证书不被信任。直接省略 tls 指令，让 Caddy 通过 80 端口 HTTP-01 自动为 jp2.example.com 签发 Let's Encrypt 证书即可（Cloudflare Full 模式下完全兼容）。
 
 ### 9.3 验证回源连通性
 
@@ -660,6 +642,12 @@ curl -sS -o /dev/null -w "HTTP %{http_code}\n" --resolve jp2.example.com:443:104
 
 在 proxy-groups 中同时配置 url-test（自动最低延迟，tolerance: 30）与 fallback（自动主备），把全部 20 个节点放入其中，即可在直连波动时自动切换到延迟最低的 Cloudflare 日本优选链路，同时出口 IP 始终保持为两台大阪 AMD 机器的日本公网 IP。
 
+### 9.5 原理与流向：为什么需要域名 + WS，以及 20 节点的真实意义
+
+1. 为什么走 Cloudflare 必须用自己的域名和 TLS + WebSocket？
+1. Cloudflare 优选 IP 是什么？
+1. Cloudflare 中转方案的一次请求流向：
+1. 20 个节点的真实价值与局限：
 ## 十、日常维护与暂停
 
 私钥和配置放在自己的加密备份里。暂停代理：
