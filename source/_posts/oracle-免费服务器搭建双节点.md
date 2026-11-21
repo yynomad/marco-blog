@@ -3,14 +3,14 @@ title: "Oracle 免费服务器搭建双节点"
 permalink: "oracle-free-xray-reality-guide"
 date: 2026-10-30
 notion_id: 409f66ff-04f8-8170-8893-ca73e2789bdb
-notion_hash: 2ce41e87cc7b8fec5bd2f9fe0232f9ab
+notion_hash: 85cbdeec7dfb9482a8ea9a9c3e358c8a
 tags:
 categories:
 ---
 
 <!-- more -->
 
-最近用 Oracle Cloud 的两台免费 AMD 服务器搭了两个个人节点。最花时间的不是安装，而是分清“云端放行”“主机放行”和“客户端握手”，以及最后把节点做成订阅。
+最近申请了 Oracle Cloud 的两台免费 AMD 服务器，搭了个梯子
 
 这篇按第一次接触服务器的顺序写：先跑通一台，再复制到第二台，最后按需加订阅。每组命令都注明在哪执行，并给出成功标准。方案是 Xray + VLESS/REALITY + Vision，客户端使用 FlClash。
 
