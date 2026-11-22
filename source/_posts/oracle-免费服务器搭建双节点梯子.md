@@ -1,5 +1,5 @@
 ---
-title: "Oracle 免费服务器搭建双节点"
+title: "Oracle 免费服务器搭建双节点梯子"
 permalink: "oracle-free-xray-reality-guide"
 date: 2026-10-30
 notion_id: 409f66ff-04f8-8170-8893-ca73e2789bdb
